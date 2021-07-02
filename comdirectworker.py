@@ -25,6 +25,11 @@ def get_options():
     config["client_secret"] = os.getenv("COMDIRECT_CLIENT_SECRET")
     config["zugangsnummer"] = os.getenv("COMDIRECT_ZUGANGSNUMMER")
     config["pin"] = os.getenv("COMDIRECT_PIN")
+    config["required_metadata"] = {
+        "invoice_amount" : os.getenv("META_INVOICE_AMOUNT", "invoice_amount"),
+        "invoice_number" : os.getenv("META_INVOICE_NUMBER", "invoice_number"),
+        "invoice_date" : os.getenv("META_INVOICE_DATE", "invoice_date")
+    }
     return config
 
 
@@ -52,10 +57,10 @@ def single(document):
     m = get_mayan(args)
     c = get_comdirect(args)
     _logger.info("load document %s", document)
-    process(m, c, document)
+    process(m, c, document, args['required_metadata'])
 
 
-def process(m, c, document):
+def process(m, c, document, required_metadata):
     if isinstance(document, str):
         if document.isnumeric():
             document = m.get(m.ep(f"documents/{document}"))
@@ -72,16 +77,20 @@ def process(m, c, document):
         for x in m.all(m.ep("metadata", base=document["url"]))
     }
 
-    required_metadata = (("invoiceamount", "invoicenumber", "receiptdate"))
-
-    for meta_name in required_metadata:
+    for meta_name in required_metadata.values():
         if meta_name not in doc_metadata:
             _logger.error("not all required metadata is present")
             return
-
+    
+    # The document fulfills the requirements. We can try to read account transactions
     c.login()
     pickled = pickle.dumps(c)
-    # We need to log in again after 20 minutes anyway so we might as well clear the cache then
+    # We need to log in again after 20 minutes anyway so we might as well clear the cache after 20 minutes
     redis_conn.set('comdirect_cache', pickled, 1200)
 
     c.get_transactions()
+
+    # TODO: Search for matching transactions. Let's start with this:
+    # 1. invoicenumber is within booking reference
+    # 2. invoiceamount matches the transaction amount
+    # 3. transaction date is after invoicedate (to reduce the amount of transaction we have to go through)
