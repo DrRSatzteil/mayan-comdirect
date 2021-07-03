@@ -111,7 +111,7 @@ class Comdirect:
         self.session_id = secrets.token_hex(15)
 
     def __update_request_id(self):
-        self.request_id = secrets.randbits(9)
+        self.request_id = str(secrets.randbits(34) % 1000000000).zfill(9)
 
     def __wait_for_challenge(self):
         self.challenge_status = 'PENDING'
@@ -162,7 +162,7 @@ class Request_2_2(ComdirectRequest):
         self.headers = {
             'Accept': 'application/json',
             'Authorization': 'Bearer ' + access_token,
-            'x-http-request-info': '{"clientRequestId":{"sessionId":"' + session_id + '","requestId":"' + str(request_id) + '"}}',
+            'x-http-request-info': '{"clientRequestId":{"sessionId":"' + session_id + '","requestId":"' + request_id + '"}}',
             'Content-Type': 'application/json'
         }
         self.accepted_response_codes = {
@@ -191,7 +191,7 @@ class Request_2_3(ComdirectRequest):
         self.headers = {
             'Accept': 'application/json',
             'Authorization': 'Bearer ' + access_token,
-            'x-http-request-info': '{"clientRequestId":{"sessionId":"' + session_id + '","requestId":"' + str(request_id) + '"}}',
+            'x-http-request-info': '{"clientRequestId":{"sessionId":"' + session_id + '","requestId":"' + request_id + '"}}',
             'Content-Type': 'application/json'
         }
         self.accepted_response_codes = {
@@ -228,7 +228,7 @@ class Request_Challenge_Status(ComdirectRequest):
         self.headers = {
             'Accept': 'application/json',
             'Authorization': 'Bearer ' + access_token,
-            'x-http-request-info': '{"clientRequestId":{"sessionId":"' + session_id + '","requestId":"' + str(request_id) + '"}}',
+            'x-http-request-info': '{"clientRequestId":{"sessionId":"' + session_id + '","requestId":"' + request_id + '"}}',
             'Content-Type': 'application/json'
         }
         self.accepted_response_codes = {
@@ -256,7 +256,7 @@ class Request_2_4(ComdirectRequest):
         self.headers = {
             'Accept': 'application/json',
             'Authorization': 'Bearer ' + access_token,
-            'x-http-request-info': '{"clientRequestId":{"sessionId":"' + session_id + '","requestId":"' + str(request_id) + '"}}',
+            'x-http-request-info': '{"clientRequestId":{"sessionId":"' + session_id + '","requestId":"' + request_id + '"}}',
             'Content-Type': 'application/json',
             'x-once-authentication-info': '{"id":"' + challenge_id + '"}',
             'x-once-authentication': '000000'
@@ -328,7 +328,7 @@ class Request_4_1_1(ComdirectRequest):
         self.headers = {
             'Accept': 'application/json',
             'Authorization': 'Bearer ' + access_token,
-            'x-http-request-info': '{"clientRequestId":{"sessionId":"' + session_id + '","requestId":"' + str(request_id) + '"}}',
+            'x-http-request-info': '{"clientRequestId":{"sessionId":"' + session_id + '","requestId":"' + request_id + '"}}',
             'Content-Type': 'application/json'
         }
         self.accepted_response_codes = {
@@ -356,7 +356,7 @@ class Request_4_1_3(ComdirectRequest):
         self.headers = {
             'Accept': 'application/json',
             'Authorization': 'Bearer ' + access_token,
-            'x-http-request-info': '{"clientRequestId":{"sessionId":"' + session_id + '","requestId":"' + str(request_id) + '"}}',
+            'x-http-request-info': '{"clientRequestId":{"sessionId":"' + session_id + '","requestId":"' + request_id + '"}}',
             'Content-Type': 'application/json'
         }
         self.accepted_response_codes = {
