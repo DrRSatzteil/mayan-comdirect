@@ -1,4 +1,6 @@
+from datetime import datetime
 from logging.config import fileConfig
+from typing import Type
 import comdirect
 import logging
 import mayan
@@ -26,9 +28,9 @@ def get_options():
     config["zugangsnummer"] = os.getenv("COMDIRECT_ZUGANGSNUMMER")
     config["pin"] = os.getenv("COMDIRECT_PIN")
     config["required_metadata"] = {
-        "invoice_amount" : os.getenv("META_INVOICE_AMOUNT", "invoice_amount"),
-        "invoice_number" : os.getenv("META_INVOICE_NUMBER", "invoice_number"),
-        "invoice_date" : os.getenv("META_INVOICE_DATE", "invoice_date")
+        "invoice_amount": os.getenv("META_INVOICE_AMOUNT", "invoice_amount"),
+        "invoice_number": os.getenv("META_INVOICE_NUMBER", "invoice_number"),
+        "invoice_date": os.getenv("META_INVOICE_DATE", "invoice_date")
     }
     return config
 
@@ -81,16 +83,22 @@ def process(m, c, document, required_metadata):
         if meta_name not in doc_metadata:
             _logger.error("not all required metadata is present")
             return
-    
-    # The document fulfills the requirements. We can try to read account transactions
-    c.login()
-    pickled = pickle.dumps(c)
-    # We need to log in again after 20 minutes anyway so we might as well clear the cache after 20 minutes
-    redis_conn.set('comdirect_cache', pickled, 1200)
 
-    c.get_transactions()
+    # TODO: Support different date formats
+    c.login()
+    # TODO: Get date from document
+    transactions = c.get_transactions(datetime.strptime('2020-10-10', '%Y-%m-%d'))
+    cache_api_state(c)
+
+    _logger.debug('Received transactions: ' + str(transactions))
 
     # TODO: Search for matching transactions. Let's start with this:
     # 1. invoicenumber is within booking reference
     # 2. invoiceamount matches the transaction amount
     # 3. transaction date is after invoicedate (to reduce the amount of transaction we have to go through)
+
+
+def cache_api_state(comdirect):
+    pickled = pickle.dumps(comdirect)
+    # We need to log in again after 20 minutes anyway so we might as well clear the cache after 20 minutes
+    redis_conn.set('comdirect_cache', pickled, 1200)

@@ -9,6 +9,14 @@ import time
 
 _logger = logging.getLogger(__name__)
 
+class ComdirectTransaction():
+
+    def __init__(self, valuta_date, remittance_info, amount_in_eur) -> None:
+        self.valuta_date = valuta_date
+        self.remittance_info = remittance_info
+        self.amount_in_eur = amount_in_eur
+
+
 class ComdirectRequest():
 
     def process_response(self, comdirect, response):
@@ -28,7 +36,7 @@ class ComdirectRequest():
 
 class Comdirect:
 
-    def __init__(self, client_id, client_secret, zugangsnummer, pin):
+    def __init__(self, client_id, client_secret, zugangsnummer, pin) -> None:
         self.client_id = client_id
         self.client_secret = client_secret
         self.zugangsnummer = zugangsnummer
@@ -36,7 +44,6 @@ class Comdirect:
         self.access_token_expiry = datetime.now()
         self.refresh_token_expiry = datetime.now()
 
-    # TODO: On any xception reset expiry dates so that subsequent calls will retrigger the complete login flow
     def login(self):
         try:
             if self.access_token_expiry > datetime.now():
@@ -57,7 +64,7 @@ class Comdirect:
             self.refresh_token_expiry = datetime.now()
             raise
 
-    def get_transactions(self):
+    def get_transactions(self, earliest):
         if self.access_token_expiry <= datetime.now():
             raise Exception('Access token expired. Please log in again.')
 
@@ -65,10 +72,32 @@ class Comdirect:
             self.__perform_request(Request_4_1_1(
                 self.access_token, self.session_id, self.request_id))
 
-            self.__perform_request(Request_4_1_3(
-                self.access_token, self.session_id, self.request_id, self.account_UUID))
+            transactions = []
+            booking_date_latest_transaction = datetime.now()
+            paging_first = 0
 
-            # TODO: We need some transactions on our account first to really test this...
+            while booking_date_latest_transaction >= earliest:
+                response = self.__perform_request(Request_4_1_3(
+                    self.access_token, self.session_id, self.request_id, self.account_UUID, paging_first))
+                
+                json = response.json()
+                
+                booking_date_latest_transaction = datetime.strptime(json['aggregated']['bookingDateLatestTransaction'], '%Y-%m-%d')
+                
+                txs = json['values']
+                for tx in txs:
+                    valuta_date = datetime.strptime(tx['valutaDate'], '%Y-%m-%d')
+                    if valuta_date >= earliest:
+                        remittance_info = tx['remittanceInfo']
+                        amount_in_eur = tx['amount']['value']
+                        transactions.append(ComdirectTransaction(valuta_date, remittance_info, amount_in_eur))
+
+                if json['aggregated']['latestTransactionIncluded']:
+                    break
+
+                paging_first += len(transactions) - 1
+            
+            return transactions
 
         except:
             _logger.error(
@@ -348,10 +377,10 @@ class Request_4_1_1(ComdirectRequest):
 
 
 class Request_4_1_3(ComdirectRequest):
-    def __init__(self, access_token, session_id, request_id, account_UUID):
+    def __init__(self, access_token, session_id, request_id, account_UUID, paging_first):
         self.method = 'GET'
         self.endpoint = "https://api.comdirect.de/api/banking/v1/accounts/" + \
-            account_UUID + "/transactions"
+            account_UUID + "/transactions?paging-first=" + str(paging_first)
         self.payload = {}
         self.headers = {
             'Accept': 'application/json',
