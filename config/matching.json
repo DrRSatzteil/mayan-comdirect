@@ -1,0 +1,5 @@
+{
+    "invoice_amount" : "invoiceamount",
+    "invoice_date" : "receiptdate",
+    "invoice_number": "invoicenumber"
+}

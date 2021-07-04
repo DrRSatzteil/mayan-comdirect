@@ -52,16 +52,22 @@ def get_comdirect(args):
 
 def single(document):
     args = get_options()
-    f = open('/app/config/metadatamapping.json',)
-    metadatamapping = json.load(f)
-    _logger.debug('Loaded metadatamapping: ' + str(metadatamapping))
+    f1 = open('/app/config/matching.json',)
+    f2 = open('/app/config/mapping.json',)
+    f3 = open('/app/config/tagging.json',)
+    matching = json.load(f1)
+    mapping = json.load(f2)
+    tagging = json.load(f3)
+    _logger.debug('Loaded matching: ' + str(matching))
+    _logger.debug('Loaded mapping: ' + str(mapping))
+    _logger.debug('Loaded tagging: ' + str(tagging))
     m = get_mayan(args)
     c = get_comdirect(args)
     _logger.info("load document %s", document)
-    process(m, c, document, metadatamapping)
+    process(m, c, document, matching, mapping, tagging)
 
 
-def process(m, c, document, metadatamapping):
+def process(m, c, document, matching, mapping, tagging):
     if isinstance(document, str):
         if document.isnumeric():
             document = m.get(m.ep(f"documents/{document}"))
@@ -80,9 +86,9 @@ def process(m, c, document, metadatamapping):
 
     search_criteria = {}
     try:
-        search_criteria['invoice_amount'] = doc_metadata[metadatamapping['invoice_amount']]['value']
-        search_criteria['invoice_number'] = doc_metadata[metadatamapping['invoice_number']]['value']
-        search_criteria['invoice_date'] = doc_metadata[metadatamapping['invoice_date']]['value']
+        search_criteria['invoice_amount'] = doc_metadata[matching['invoice_amount']]['value']
+        search_criteria['invoice_number'] = doc_metadata[matching['invoice_number']]['value']
+        search_criteria['invoice_date'] = doc_metadata[matching['invoice_date']]['value']
     except:
         _logger.error('Not all required metadata was present')
         raise
@@ -107,7 +113,46 @@ def process(m, c, document, metadatamapping):
             # TODO: Be more flexible regarding currency and metadata formatting...
             if(tx_amount.replace('-', '') == search_criteria['invoice_amount'].replace('€', '').replace(',', '.') and search_criteria['invoice_number'] in tx_remittanceInfo):
                 _logger.info('Found transaction for document ' + str(document))
-                # TODO: Add transaction metadata to document
+                metadata = {}
+                for property in mapping.keys():
+                    try:
+                        propertyValue = tx[property]
+                        metadata[mapping[property]] = propertyValue
+                    except:
+                        _logger.error('Property ' + property + ' not found in transaction.')
+
+                for meta in m.document_types[document["document_type"]["label"]]["metadatas"]:
+                    meta_name = meta["metadata_type"]["name"]
+                    if meta_name in metadata:
+                        if meta_name not in doc_metadata:
+                            _logger.info(
+                                "Add metadata %s (value: %s) to %s",
+                                meta_name,
+                                metadata[meta_name],
+                                document["url"],
+                            )
+                            data = {
+                                "metadata_type_pk": meta["metadata_type"]["id"],
+                                "value": metadata[meta_name],
+                            }
+                            result = m.post(
+                                m.ep("metadata", base=document["url"]), json_data=data
+                            )
+                        else:
+                            data = {"value": metadata[meta_name]}
+                            result = m.put(
+                                m.ep(
+                                    "metadata/{}".format(doc_metadata[meta_name]["id"]),
+                                    base=document["url"],
+                                ),
+                                json_data=data,
+                            )
+                    for t in tagging['tags']:
+                        if t not in m.tags:
+                            _logger.info("Tag %s not defined in system", t)
+                            continue
+                        data = {"tag_pk": m.tags[t]["id"]}
+                        result = m.post(m.ep("tags", base=document["url"]), json_data=data)
                 break
         except:
             _logger.debug('No amount or remittanceInfo found. Skipping transaction.')
