@@ -88,14 +88,12 @@ class Comdirect:
                 for tx in txs:
                     valuta_date = datetime.strptime(tx['valutaDate'], '%Y-%m-%d')
                     if valuta_date >= earliest:
-                        remittance_info = tx['remittanceInfo']
-                        amount_in_eur = tx['amount']['value']
-                        transactions.append(ComdirectTransaction(valuta_date, remittance_info, amount_in_eur))
+                        transactions.append(tx)
 
                 if json['aggregated']['latestTransactionIncluded']:
                     break
 
-                paging_first += len(transactions) - 1
+                paging_first += len(txs) - 1
             
             return transactions
 
@@ -393,7 +391,5 @@ class Request_4_1_3(ComdirectRequest):
         }
 
     def process_response(self, comdirect, response):
-
-        # TODO: Do stuff
-
+        
         return super().process_response(comdirect, response)

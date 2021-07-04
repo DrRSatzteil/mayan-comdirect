@@ -1,0 +1,7 @@
+{
+    "invoice_amount" : "invoiceamount",
+    "invoice_date" : "receiptdate",
+    "invoice_number": "invoicenumber",
+    "valuta_date": "valutadate",
+    "booking_date": "bookingdate"
+}

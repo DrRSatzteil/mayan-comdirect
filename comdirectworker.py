@@ -1,7 +1,8 @@
 from datetime import datetime
 from logging.config import fileConfig
-from typing import Type
+from typing import Dict, Type
 import comdirect
+import json
 import logging
 import mayan
 import os
@@ -27,11 +28,6 @@ def get_options():
     config["client_secret"] = os.getenv("COMDIRECT_CLIENT_SECRET")
     config["zugangsnummer"] = os.getenv("COMDIRECT_ZUGANGSNUMMER")
     config["pin"] = os.getenv("COMDIRECT_PIN")
-    config["required_metadata"] = {
-        "invoice_amount": os.getenv("META_INVOICE_AMOUNT", "invoice_amount"),
-        "invoice_number": os.getenv("META_INVOICE_NUMBER", "invoice_number"),
-        "invoice_date": os.getenv("META_INVOICE_DATE", "invoice_date")
-    }
     return config
 
 
@@ -56,13 +52,16 @@ def get_comdirect(args):
 
 def single(document):
     args = get_options()
+    f = open('/app/config/metadatamapping.json',)
+    metadatamapping = json.load(f)
+    _logger.debug('Loaded metadatamapping: ' + str(metadatamapping))
     m = get_mayan(args)
     c = get_comdirect(args)
     _logger.info("load document %s", document)
-    process(m, c, document, args['required_metadata'])
+    process(m, c, document, metadatamapping)
 
 
-def process(m, c, document, required_metadata):
+def process(m, c, document, metadatamapping):
     if isinstance(document, str):
         if document.isnumeric():
             document = m.get(m.ep(f"documents/{document}"))
@@ -79,23 +78,39 @@ def process(m, c, document, required_metadata):
         for x in m.all(m.ep("metadata", base=document["url"]))
     }
 
-    for meta_name in required_metadata.values():
-        if meta_name not in doc_metadata:
-            _logger.error("not all required metadata is present")
-            return
+    search_criteria = {}
+    try:
+        search_criteria['invoice_amount'] = doc_metadata[metadatamapping['invoice_amount']]['value']
+        search_criteria['invoice_number'] = doc_metadata[metadatamapping['invoice_number']]['value']
+        search_criteria['invoice_date'] = doc_metadata[metadatamapping['invoice_date']]['value']
+    except:
+        _logger.error('Not all required metadata was present')
+        raise
+
+    _logger.debug('Document metadata found: ' + str(search_criteria))
 
     # TODO: Support different date formats
     c.login()
-    # TODO: Get date from document
-    transactions = c.get_transactions(datetime.strptime('2020-10-10', '%Y-%m-%d'))
+    try:
+        transactions = c.get_transactions(datetime.strptime(
+            search_criteria['invoice_date'], '%Y-%m-%d'))
+    except:
+        _logger.error('Expected %Y-%m%d date format but received: ' +
+                      search_criteria['invoice_date'])
+        raise
     cache_api_state(c)
 
-    _logger.debug('Received transactions: ' + str(transactions))
-
-    # TODO: Search for matching transactions. Let's start with this:
-    # 1. invoicenumber is within booking reference
-    # 2. invoiceamount matches the transaction amount
-    # 3. transaction date is after invoicedate (to reduce the amount of transaction we have to go through)
+    for tx in transactions:
+        try:
+            tx_amount = tx['amount']['value']
+            tx_remittanceInfo = tx['remittanceInfo']
+            # TODO: Be more flexible regarding currency and metadata formatting...
+            if(tx_amount.replace('-', '') == search_criteria['invoice_amount'].replace('€', '').replace(',', '.') and search_criteria['invoice_number'] in tx_remittanceInfo):
+                _logger.info('Found transaction for document ' + str(document))
+                # TODO: Add transaction metadata to document
+                break
+        except:
+            _logger.debug('No amount or remittanceInfo found. Skipping transaction.')
 
 
 def cache_api_state(comdirect):
