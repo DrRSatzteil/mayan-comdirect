@@ -174,13 +174,14 @@ def process(m, c, document, config):
                                 ),
                                 json_data=data,
                             )
-                    for t in config['tagging']['tags']:
-                        if t not in m.tags:
-                            _logger.info("Tag %s not defined in system", t)
-                            continue
-                        data = {"tag_pk": m.tags[t]["id"]}
-                        result = m.post(
-                            m.ep("tags", base=document["url"]), json_data=data)
+
+                for t in config['tagging']['tags']:
+                    if t not in m.tags:
+                        _logger.info("Tag %s not defined in system", t)
+                        continue
+                    data = {"tag_pk": m.tags[t]["id"]}
+                    result = m.post(
+                        m.ep("tags", base=document["url"]), json_data=data)
                 break
         except:
             _logger.debug(
