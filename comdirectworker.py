@@ -12,6 +12,7 @@ import os
 import pickle
 import re
 import redis
+import redis_lock
 
 
 # read initial config file - make sure we don't squash any loggers
@@ -22,18 +23,22 @@ _logger = logging.getLogger(__name__)
 redis_conn = redis.from_url(os.getenv('REDIS_CACHE_URL', 'redis://localhost'))
 
 
-def get_options():
-    _logger.info("performing initial configuration")
-    config = {}
-    config["username"] = os.getenv("MAYAN_USER")
-    config["password"] = os.getenv("MAYAN_PASSWORD")
-    config["url"] = os.getenv("MAYAN_URL")
-    config["client_id"] = os.getenv("COMDIRECT_CLIENT_ID")
-    config["client_secret"] = os.getenv("COMDIRECT_CLIENT_SECRET")
-    config["zugangsnummer"] = os.getenv("COMDIRECT_ZUGANGSNUMMER")
-    config["pin"] = os.getenv("COMDIRECT_PIN")
-    return config
+def get_mayan_options():
+    _logger.info("initial mayan configuration")
+    options = {}
+    options["username"] = os.getenv("MAYAN_USER")
+    options["password"] = os.getenv("MAYAN_PASSWORD")
+    options["url"] = os.getenv("MAYAN_URL")
+    return options
 
+def get_comdirect_options():
+    _logger.info("initial comdirect configuration")
+    options = {}
+    options["client_id"] = os.getenv("COMDIRECT_CLIENT_ID")
+    options["client_secret"] = os.getenv("COMDIRECT_CLIENT_SECRET")
+    options["zugangsnummer"] = os.getenv("COMDIRECT_ZUGANGSNUMMER")
+    options["pin"] = os.getenv("COMDIRECT_PIN")
+    return options
 
 def get_config():
     matching = json.load(open('/app/config/matching.json',))
@@ -67,15 +72,14 @@ def get_comdirect(args):
 
 
 def single(document):
-    args = get_options()
+    args = get_mayan_options()
     config = get_config()
     m = get_mayan(args)
-    c = get_comdirect(args)
     _logger.info("load document %s", document)
-    process(m, c, document, config)
+    process(m, document, config)
 
 
-def process(m, c, document, config):
+def process(m, document, config):
     if isinstance(document, str):
         if document.isnumeric():
             document = m.get(m.ep(f"documents/{document}"))
@@ -118,9 +122,10 @@ def process(m, c, document, config):
 
     _logger.debug('Document metadata found: ' + str(search_criteria))
 
-    c.login()
-    transactions = c.get_transactions(search_criteria['invoice_date'])
-    cache_api_state(c)
+    with redis_lock.Lock(redis_conn, name='api_lock', expire=15, auto_renewal=True):
+        c = get_comdirect(get_comdirect_options())
+        transactions = c.get_transactions(search_criteria['invoice_date'])
+        cache_api_state(c)
 
     for tx in transactions:
         try:
@@ -187,6 +192,15 @@ def process(m, c, document, config):
             _logger.debug(
                 'No amount or remittanceInfo found. Skipping transaction.')
             raise
+
+def keepalive():
+    with redis_lock.Lock(redis_conn, name='api_lock', expire=15, auto_renewal=True):
+        c = get_comdirect(get_comdirect_options())
+        c.login(True)
+        cache_api_state(c)
+
+def import_postbox():
+    _logger.info("Not implemented yet")
 
 
 def cache_api_state(comdirect):

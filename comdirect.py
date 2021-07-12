@@ -1,5 +1,6 @@
 from datetime import datetime
 from datetime import timedelta
+from limit import limit
 from typing import Type
 import json
 import logging
@@ -9,13 +10,6 @@ import time
 
 _logger = logging.getLogger(__name__)
 
-class ComdirectTransaction():
-
-    def __init__(self, valuta_date, remittance_info, amount_in_eur) -> None:
-        self.valuta_date = valuta_date
-        self.remittance_info = remittance_info
-        self.amount_in_eur = amount_in_eur
-
 
 class ComdirectRequest():
 
@@ -24,9 +18,7 @@ class ComdirectRequest():
         return response
 
     def _process_token_refresh(self, comdirect, response):
-
         json = response.json()
-
         comdirect.access_token = json['access_token']
         comdirect.refresh_token = json['refresh_token']
         comdirect.access_token_expiry = datetime.now(
@@ -44,7 +36,7 @@ class Comdirect:
         self.access_token_expiry = datetime.now()
         self.refresh_token_expiry = datetime.now()
 
-    def login(self):
+    def login(self, non_interactive):
         try:
             if self.access_token_expiry > datetime.now():
                 _logger.debug("Access token is still valid")
@@ -56,6 +48,11 @@ class Comdirect:
                 self.__perform_token_refresh()
                 return
 
+            if (non_interactive):
+                _logger.info(
+                    "Tokens are no longer valid. Login with TAN not performed in non-interactive mode")
+                return
+
             _logger.debug("Tokens are no longer valid. Starting login flow")
             self.__perform_login_flow()
         except:
@@ -65,8 +62,7 @@ class Comdirect:
             raise
 
     def get_transactions(self, earliest):
-        if self.access_token_expiry <= datetime.now():
-            raise Exception('Access token expired. Please log in again.')
+        self.login(False)
 
         try:
             self.__perform_request(Request_4_1_1(
@@ -79,14 +75,14 @@ class Comdirect:
             while booking_date_latest_transaction >= earliest:
                 response = self.__perform_request(Request_4_1_3(
                     self.access_token, self.session_id, self.request_id, self.account_UUID, paging_first))
-                
                 json = response.json()
-                
-                booking_date_latest_transaction = datetime.strptime(json['aggregated']['bookingDateLatestTransaction'], '%Y-%m-%d')
-                
+                booking_date_latest_transaction = datetime.strptime(
+                    json['aggregated']['bookingDateLatestTransaction'], '%Y-%m-%d')
                 txs = json['values']
+
                 for tx in txs:
-                    valuta_date = datetime.strptime(tx['valutaDate'], '%Y-%m-%d')
+                    valuta_date = datetime.strptime(
+                        tx['valutaDate'], '%Y-%m-%d')
                     if valuta_date >= earliest:
                         transactions.append(tx)
 
@@ -94,7 +90,7 @@ class Comdirect:
                     break
 
                 paging_first += len(txs) - 1
-            
+
             return transactions
 
         except:
@@ -147,14 +143,14 @@ class Comdirect:
             self.__perform_request(Request_Challenge_Status(
                 self.access_token, self.session_id, self.request_id, self.challenge_status_endpoint))
 
+    # API terms of use allow a maxmimum of 10 requests per second
+    @limit(10)
     def __perform_request(self, request: Type[ComdirectRequest]):
-
         response = self.session.request(request.method, request.endpoint,
                                         headers=request.headers, data=request.payload)
         if response.status_code not in request.accepted_response_codes:
             raise Exception('Status code should be one of: ' + str(request.accepted_response_codes) +
                             ', but was ' + str(response.status_code) + '. Response: ' + response.text)
-
         return request.process_response(self, response)
 
 
@@ -175,9 +171,7 @@ class Request_2_1(ComdirectRequest):
         }
 
     def process_response(self, comdirect, response):
-
         super()._process_token_refresh(comdirect, response)
-
         return super().process_response(comdirect, response)
 
 
@@ -197,11 +191,8 @@ class Request_2_2(ComdirectRequest):
         }
 
     def process_response(self, comdirect, response):
-
         json = response.json()
-
         comdirect.session_UUID = json[0]['identifier']
-
         return super().process_response(comdirect, response)
 
 
@@ -246,7 +237,7 @@ class Request_2_3(ComdirectRequest):
 
         return super().process_response(comdirect, response)
 
-# Not documented in API
+# Undocumented API feature
 class Request_Challenge_Status(ComdirectRequest):
     def __init__(self, access_token, session_id, request_id, challenge_status_endpoint):
         self.method = 'GET'
@@ -263,11 +254,8 @@ class Request_Challenge_Status(ComdirectRequest):
         }
 
     def process_response(self, comdirect, response):
-
         json = response.json()
-
         comdirect.challenge_status = json['status']
-
         return super().process_response(comdirect, response)
 
 
@@ -295,13 +283,11 @@ class Request_2_4(ComdirectRequest):
     def process_response(self, comdirect, response):
 
         json = response.json()
-
         if not json['sessionTanActive'] or not json['activated2FA']:
             raise Exception(
                 'Session TAN or 2FA not active. Something went wrong.')
 
         comdirect.session_UUID = json['identifier']
-
         return super().process_response(comdirect, response)
 
 
@@ -320,9 +306,7 @@ class Request_2_5(ComdirectRequest):
         }
 
     def process_response(self, comdirect, response):
-
         super()._process_token_refresh(comdirect, response)
-
         return super().process_response(comdirect, response)
 
 
@@ -341,9 +325,7 @@ class Request_3_1_1(ComdirectRequest):
         }
 
     def process_response(self, comdirect, response):
-
         super()._process_token_refresh(comdirect, response)
-
         return super().process_response(comdirect, response)
 
 
@@ -366,7 +348,7 @@ class Request_4_1_1(ComdirectRequest):
 
         json = response.json()
 
-        # TODO: Normally the first account should be fine but there is 
+        # TODO: Normally the first account should be fine but there is
         # still room for imprevement here. Maybe we could get all accounts
         # here and request transactions for all of them as well.
         comdirect.account_UUID = json['values'][0]['accountId']
@@ -391,5 +373,4 @@ class Request_4_1_3(ComdirectRequest):
         }
 
     def process_response(self, comdirect, response):
-        
         return super().process_response(comdirect, response)

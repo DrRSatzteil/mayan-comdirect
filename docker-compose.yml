@@ -4,6 +4,18 @@ version: '2'
 
 services:
   
+  mayan-comdirect-keepalive:
+    container_name: mayan-comdirect-web
+    image: DrRSatzteil/mayan-comdirect-web:latest
+    networks:
+      - bridge
+    restart: unless-stopped
+    environment:
+      WEB_URL: mayan-comdirect-web:8000
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+
   mayan-comdirect-web:
     container_name: mayan-comdirect-web
     image: DrRSatzteil/mayan-comdirect-web:latest
