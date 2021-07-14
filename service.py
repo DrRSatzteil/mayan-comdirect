@@ -1,4 +1,5 @@
 from flask import Flask
+from flask import request
 import os
 import rq
 import redis
@@ -17,14 +18,19 @@ app = Flask('COMDIRECT')
 def hello_world():
     return 'Nothing Here'
 
-@app.route('/tx/<int:document_id>', methods=['GET', 'POST'])
+@app.route('/transaction/<int:document_id>', methods=['GET', 'POST'])
 def trigger_tx(document_id):
-    q.enqueue(single, str(document_id))
+    interactive = request.args.get('interactive', default = False, type = bool)
+    q.enqueue(single, str(document_id), interactive)
     return 'OK'
 
 @app.route('/postbox', methods=['GET', 'POST'])
 def trigger_postbox():
-    q.enqueue(import_postbox)
+    interactive = request.args.get('interactive', default = False, type = bool)
+    ads = request.args.get('ads', default = False, type = bool)
+    archived = request.args.get('archived', default = False, type = bool)
+    read = request.args.get('read', default = False, type = bool)
+    q.enqueue(import_postbox, interactive, ads, archived, read)
     return 'OK'
 
 @app.route('/keepalive', methods=['GET', 'POST'])

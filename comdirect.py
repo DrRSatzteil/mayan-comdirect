@@ -36,33 +36,36 @@ class Comdirect:
         self.access_token_expiry = datetime.now()
         self.refresh_token_expiry = datetime.now()
 
-    def login(self, non_interactive):
+    def login(self, interactive) -> bool:
         try:
             if self.access_token_expiry > datetime.now():
                 _logger.debug("Access token is still valid")
-                return
+                return True
 
             if self.refresh_token_expiry > datetime.now():
                 _logger.debug(
                     "Refresh token is still valid. Performing access token refresh")
                 self.__perform_token_refresh()
-                return
+                return True
 
-            if (non_interactive):
+            if not interactive:
                 _logger.info(
                     "Tokens are no longer valid. Login with TAN not performed in non-interactive mode")
-                return
+                return False
 
             _logger.debug("Tokens are no longer valid. Starting login flow")
             self.__perform_login_flow()
+            return True
         except:
             _logger.error("Login failed. Invalidating tokens.")
             self.access_token_expiry = datetime.now()
             self.refresh_token_expiry = datetime.now()
             raise
 
-    def get_transactions(self, earliest):
-        self.login(False)
+    def get_transactions(self, earliest, interactive):
+        if not self.login(interactive):
+            _logger.info('Not logged in. Stopping get_transactions.')
+            return []
 
         try:
             self.__perform_request(Request_4_1_1(
@@ -96,6 +99,55 @@ class Comdirect:
         except:
             _logger.error(
                 "Failed to retrieve account transactions. Invalidating tokens.")
+            self.access_token_expiry = datetime.now()
+            self.refresh_token_expiry = datetime.now()
+            raise
+
+    def get_postbox_documents(self, interactive, get_ads=False, get_archived=False, get_read=False):
+        if not self.login(interactive):
+            _logger.info('Not logged in. Stopping get_postbox_documents.')
+            return []
+
+        try:
+            documents = []
+            paging_first = 0
+            matches = 999
+
+            while(paging_first < matches - 1):
+                documentsResponse = self.__perform_request(Request_9_1_1(
+                    self.access_token, self.session_id, self.request_id, paging_first))
+
+                responseJson = documentsResponse.json()
+                documentsJson = responseJson['values']
+                paging_first += len(documentsJson) - 1
+                matches = responseJson['paging']['matches']
+
+                for document in documentsJson:
+                    filtered = document['advertisement'] and not get_ads
+                    filtered = filtered or (
+                        document['documentMetaData']['archived'] and not get_archived
+                    )
+                    filtered = filtered or (
+                        document['documentMetaData']['alreadyRead'] and not get_read
+                    )
+                    if not (filtered):
+                        mimetype = document['mimeType']
+                        name = document['name']
+                        document_UUID = document['documentId']
+                        response = self.__perform_request(Request_9_1_2(
+                            self.access_token, self.session_id, self.request_id, document_UUID, mimetype))
+                        if mimetype == 'text/html':
+                            documents.append(
+                                {'name': name, 'mimetype': mimetype, 'content': response.text})
+                        if mimetype == 'application/pdf':
+                            documents.append(
+                                {'name': name, 'mimetype': mimetype, 'content': response.content})
+
+            return documents
+
+        except:
+            _logger.error(
+                "Failed to retrieve documents. Invalidating tokens.")
             self.access_token_expiry = datetime.now()
             self.refresh_token_expiry = datetime.now()
             raise
@@ -350,7 +402,7 @@ class Request_4_1_1(ComdirectRequest):
 
         # TODO: Normally the first account should be fine but there is
         # still room for imprevement here. Maybe we could get all accounts
-        # here and request transactions for all of them as well.
+        # here and request transactions for all of them.
         comdirect.account_UUID = json['values'][0]['accountId']
 
         return super().process_response(comdirect, response)
@@ -374,3 +426,45 @@ class Request_4_1_3(ComdirectRequest):
 
     def process_response(self, comdirect, response):
         return super().process_response(comdirect, response)
+
+
+class Request_9_1_1(ComdirectRequest):
+    def __init__(self, access_token, session_id, request_id, paging_first):
+        self.method = 'GET'
+        self.endpoint = "https://api.comdirect.de/api/messages/clients/user/v2/documents?paging-first=" + \
+            str(paging_first)
+        self.payload = {}
+        self.headers = {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer ' + access_token,
+            'x-http-request-info': '{"clientRequestId":{"sessionId":"' + session_id + '","requestId":"' + request_id + '"}}',
+            'Content-Type': 'application/json'
+        }
+        self.accepted_response_codes = {
+            200
+        }
+
+    def process_response(self, comdirect, response):
+        json = response.json()
+        comdirect.documents = json['values']
+        return super().process_response(comdirect, response)
+
+
+class Request_9_1_2(ComdirectRequest):
+    def __init__(self, access_token, session_id, request_id, document_UUID, mimetype):
+        self.method = 'GET'
+        self.endpoint = "https://api.comdirect.de/api/messages/v2/documents/" + document_UUID
+        self.payload = {}
+        self.headers = {
+            'Accept': mimetype,
+            'Authorization': 'Bearer ' + access_token,
+            'x-http-request-info': '{"clientRequestId":{"sessionId":"' + session_id + '","requestId":"' + request_id + '"}}',
+            'Content-Type': 'application/json'
+        }
+        self.accepted_response_codes = {
+            200
+        }
+
+    def process_response(self, comdirect, response):
+        # Never log this response since it may contain binary data
+        return response

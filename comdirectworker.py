@@ -3,14 +3,13 @@ from datetime import datetime
 from logging.config import fileConfig
 from typing import Dict, Type
 import comdirect
-import decimal
+import io
 import json
-import locale
 import logging
 import mayan
 import os
+import pdfkit
 import pickle
-import re
 import redis
 import redis_lock
 
@@ -41,14 +40,7 @@ def get_comdirect_options():
     return options
 
 def get_config():
-    matching = json.load(open('/app/config/matching.json',))
-    mapping = json.load(open('/app/config/mapping.json',))
-    tagging = json.load(open('/app/config/tagging.json',))
-    config = {
-        "matching": matching,
-        "mapping": mapping,
-        "tagging": tagging
-    }
+    config = json.load(open('/app/config/config.json',))
     return config
 
 
@@ -71,15 +63,15 @@ def get_comdirect(args):
     return c
 
 
-def single(document):
+def single(document, interactive):
     args = get_mayan_options()
     config = get_config()
     m = get_mayan(args)
     _logger.info("load document %s", document)
-    process(m, document, config)
+    process(m, document, config, interactive)
 
 
-def process(m, document, config):
+def process(m, document, config, interactive):
     if isinstance(document, str):
         if document.isnumeric():
             document = m.get(m.ep(f"documents/{document}"))
@@ -99,22 +91,20 @@ def process(m, document, config):
     search_criteria = {}
     unsigned = True
     try:
-        amount = doc_metadata[config['matching']
-                              ['invoice_amount']['metadatatype']]['value']
-        unsigned = config['matching']['invoice_amount']['unsigned']
-        amountlocale = config['matching']['invoice_amount']['locale']
+        matchingconfig = config['transaction']['matching']
+        amount = doc_metadata[matchingconfig['invoice_amount']['metadatatype']]['value']
+        unsigned = matchingconfig['invoice_amount']['unsigned']
+        amountlocale = matchingconfig['invoice_amount']['locale']
         amount_filtered = ''.join(str(c) for c in (
             list(filter(lambda x: x in '-0123456789.,', amount))))
         amount_decimal = numbers.parse_decimal(
             amount_filtered, locale=amountlocale)
         search_criteria['invoice_amount'] = amount_decimal
 
-        search_criteria['invoice_number'] = doc_metadata[config['matching']
-                                                         ['invoice_number']['metadatatype']]['value']
+        search_criteria['invoice_number'] = doc_metadata[matchingconfig['invoice_number']['metadatatype']]['value']
 
-        date = doc_metadata[config['matching']
-                            ['invoice_date']['metadatatype']]['value']
-        format = config['matching']['invoice_date']['dateformat']
+        date = doc_metadata[matchingconfig['invoice_date']['metadatatype']]['value']
+        format = matchingconfig['invoice_date']['dateformat']
         search_criteria['invoice_date'] = datetime.strptime(date, format)
     except:
         _logger.error('Matching configuration is incomplete or incorrect.')
@@ -124,7 +114,8 @@ def process(m, document, config):
 
     with redis_lock.Lock(redis_conn, name='api_lock', expire=15, auto_renewal=True):
         c = get_comdirect(get_comdirect_options())
-        transactions = c.get_transactions(search_criteria['invoice_date'])
+        transactions = c.get_transactions(
+            search_criteria['invoice_date'], interactive)
         cache_api_state(c)
 
     for tx in transactions:
@@ -144,10 +135,11 @@ def process(m, document, config):
                 metadata = {}
                 # TODO: Add possibility to configure mappings on deeper levels
                 # and basic transformations e.g. for date formats
-                for property in config['mapping'].keys():
+                mappingconfig = config['transaction']['mapping']
+                for property in mappingconfig.keys():
                     try:
                         propertyValue = tx[property]
-                        metadata[config['mapping'][property]] = propertyValue
+                        metadata[mappingconfig[property]] = propertyValue
                     except:
                         _logger.error('Property ' + property +
                                       ' not found in transaction.')
@@ -179,28 +171,76 @@ def process(m, document, config):
                                 ),
                                 json_data=data,
                             )
-
-                for t in config['tagging']['tags']:
+                
+                taggingconfig = config['transaction']['tagging']
+                for t in taggingconfig['tags']:
                     if t not in m.tags:
                         _logger.info("Tag %s not defined in system", t)
                         continue
-                    data = {"tag_pk": m.tags[t]["id"]}
+                    data = {"tag": m.tags[t]["id"]}
                     result = m.post(
-                        m.ep("tags", base=document["url"]), json_data=data)
+                        m.ep("tags/attach", base=document["url"]), json_data=data)
                 break
         except:
             _logger.debug(
                 'No amount or remittanceInfo found. Skipping transaction.')
             raise
 
+
 def keepalive():
     with redis_lock.Lock(redis_conn, name='api_lock', expire=15, auto_renewal=True):
         c = get_comdirect(get_comdirect_options())
-        c.login(True)
+        c.login(False)
         cache_api_state(c)
 
-def import_postbox():
-    _logger.info("Not implemented yet")
+
+def import_postbox(interactive, get_ads, get_archived, get_read):
+    args = get_mayan_options()
+    config = get_config()
+    m = get_mayan(args)
+    _logger.info("importing postbox")
+
+    with redis_lock.Lock(redis_conn, name='api_lock', expire=15, auto_renewal=True):
+        c = get_comdirect(get_comdirect_options())
+        documents = c.get_postbox_documents(
+            interactive, get_ads, get_archived, get_read)
+        cache_api_state(c)
+
+    _logger.debug("Received %d documents", len(documents))
+    postboxconfig = config['postbox']
+    document_type_id = m.document_types[postboxconfig['documenttype']]['id']
+
+    for document in documents:
+        create_data = {'document_type_id': document_type_id,
+                       'label': document['name'], 'language': 'deu'}
+        result_create = m.post(
+            m.ep("documents"), json_data=create_data
+        )
+
+        if document['mimetype'] == 'application/pdf':
+            with io.BytesIO(document['content']) as documentfile:
+                resultUpload = m.uploadfile(
+                    m.ep(
+                        "files",
+                        base=result_create["url"],
+                    ),
+                    json_data={'action': 1},
+                    file_data={'file_new': documentfile}
+                )
+
+        if document['mimetype'] == 'text/html':
+            with io.StringIO(document['content']) as documentfile:
+                pdf = pdfkit.from_file(documentfile, False)
+
+            with io.BytesIO(pdf) as pdffile:
+                resultUpload = m.uploadfile(
+                    m.ep(
+                        "files",
+                        base=result_create["url"],
+                    ),
+                    json_data={'action': 1},
+                    file_data={'file_new': pdffile}
+                )
 
 
 def cache_api_state(comdirect):
