@@ -1,13 +1,11 @@
-import requests
-import re
-import json
 from json import JSONDecodeError
 from typing import Union
+import json
 import logging
+import re
+import requests
 
 _logger = logging.getLogger(__name__)
-
-
 
 class Endpoint(object):
     def __init__(self, endpoint: str, *, params: dict = {}, base: str = None):
@@ -37,7 +35,6 @@ class Endpoint(object):
             version = re.search("api/(v\d+)/", base)
             if version:
                 self.version = version.group(1)
-        #base = base.replace('http://', 'https://')
         self.base = base
         self.params = params
         self.endpoint = endpoint
@@ -46,7 +43,8 @@ class Endpoint(object):
     def paramstring(self):
         if self._paramstring != None:
             return self._paramstring
-        paramstring = "&".join(map(lambda x: f"{x[0]}={x[1]}", self.params.items()))
+        paramstring = "&".join(
+            map(lambda x: f"{x[0]}={x[1]}", self.params.items()))
         return paramstring
 
     def __repr__(self):
@@ -88,7 +86,8 @@ class Mayan(object):
 
     def load(self):
         self.content_types = self.all("content_types")
-        self.document_types = {x["label"]: x for x in self.all("document_types")}
+        self.document_types = {
+            x["label"]: x for x in self.all("document_types")}
         self.metadata_types = self.all("metadata_types")
         self.tags = {x["label"]: x for x in self.all("tags")}
         for dt, document_type in self.document_types.items():
@@ -128,7 +127,7 @@ class Mayan(object):
             print("WOULD POST", str(endpoint), json.dumps(json_data, indent=2))
             return {}
         result = self.session.post(endpoint, json=json_data)
-        if result.status_code != 201:
+        if result.status_code not in [200, 201]:
             _logger.warning(json.dumps(result.json(), indent=2))
         try:
             return result.json()
@@ -141,8 +140,9 @@ class Mayan(object):
         if self.test:
             print("WOULD POST", str(endpoint), json.dumps(json_data, indent=2))
             return {}
-        print (self.session.headers)
-        result = self.session.post(endpoint, data=json_data, files=file_data, headers={'Content-type': None})
+        print(self.session.headers)
+        result = self.session.post(endpoint, data=json_data, files=file_data, headers={
+                                   'Content-type': None})
         if result.status_code != 202:
             _logger.warning(json.dumps(result.json(), indent=2))
         try:

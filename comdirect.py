@@ -289,7 +289,7 @@ class Request_2_3(ComdirectRequest):
 
         return super().process_response(comdirect, response)
 
-# Undocumented API feature
+
 class Request_Challenge_Status(ComdirectRequest):
     def __init__(self, access_token, session_id, request_id, challenge_status_endpoint):
         self.method = 'GET'

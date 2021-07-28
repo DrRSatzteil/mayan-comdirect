@@ -1,36 +1,37 @@
 # This is a configuration example. Please review for your own setup
 
-version: '2'
+version: '3.3'
 
 services:
   
+  #Please read Readme before using the keepalive function
   mayan-comdirect-keepalive:
-    container_name: mayan-comdirect-web
-    image: DrRSatzteil/mayan-comdirect-web:latest
+    container_name: mayan-comdirect-keepalive
+    image: drrsatzteil/mayan-comdirect-web:latest
     networks:
       - bridge
     restart: unless-stopped
-    environment:
-      WEB_URL: mayan-comdirect-web:8000
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
+    environment:
+      WEB_URL: mayan-comdirect-web:8000
 
   mayan-comdirect-web:
     container_name: mayan-comdirect-web
-    image: DrRSatzteil/mayan-comdirect-web:latest
+    image: drrsatzteil/mayan-comdirect-web:latest
     networks:
       - bridge
     restart: unless-stopped
-    environment:
-      REDIS_URL: redis://:${MAYAN_REDIS_PASSWORD:-mayanredispassword}@redis:6379/3
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
+    environment:
+      REDIS_URL: redis://:${MAYAN_REDIS_PASSWORD:-mayanredispassword}@redis:6379/3
             
   mayan-comdirect-worker:
     container_name: mayan-comdirect-worker
-    image: DrRSatzteil/mayan-comdirect-worker:latest
+    image: drrsatzteil/mayan-comdirect-worker:latest
     networks:
       - bridge
     restart: unless-stopped
@@ -42,7 +43,7 @@ services:
       REDIS_CACHE_URL: redis://:${MAYAN_REDIS_PASSWORD:-mayanredispassword}@redis:6379/4
       MAYAN_USER: ${MAYAN_MAM_USER}
       MAYAN_PASSWORD: ${MAYAN_MAM_PASS}
-      MAYAN_URL: http://app:8000/api/
+      MAYAN_URL: http://app:8000/api/v4/
       COMDIRECT_CLIENT_ID: ${COMDIRECT_CLIENT_ID}
       COMDIRECT_CLIENT_SECRET: ${COMDIRECT_CLIENT_SECRET}
       COMDIRECT_ZUGANGSNUMMER: ${COMDIRECT_ZUGANGSNUMMER}
