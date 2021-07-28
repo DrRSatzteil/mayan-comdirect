@@ -1,0 +1,22 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build the web Docker image
+      run: docker build . --file ./docker/mayan-comdirect-web/Dockerfile --tag drrsatzteil/mayan-comdirect-web:latest
+    - name: Build the worker Docker image
+      run: docker build . --file ./docker/mayan-comdirect-worker/Dockerfile --tag drrsatzteil/mayan-comdirect-worker:latest
+    - name: Build the keepalive Docker image
+      run: docker build . --file ./docker/mayan-comdirect-keepalive/Dockerfile --tag drrsatzteil/mayan-comdirect-keepalive:latest
