@@ -63,15 +63,12 @@ def get_comdirect(args):
     return c
 
 
-def single(document, interactive):
+def transaction(document, interactive):
     args = get_mayan_options()
     config = get_config()
     m = get_mayan(args)
     _logger.info("load document %s", document)
-    process(m, document, config, interactive)
-
-
-def process(m, document, config, interactive):
+    
     if isinstance(document, str):
         if document.isnumeric():
             document = m.get(m.ep(f"documents/{document}"))
@@ -118,6 +115,7 @@ def process(m, document, config, interactive):
             search_criteria['invoice_date'], interactive)
         cache_api_state(c)
 
+    transaction_found = False
     for tx in transactions:
         try:
             tx_amount = tx['amount']['value']
@@ -131,6 +129,7 @@ def process(m, document, config, interactive):
 
             if(tx_amount_decimal == search_criteria['invoice_amount']
                     and search_criteria['invoice_number'] in tx_remittanceInfo):
+                transaction_found = True
                 _logger.info('Found transaction for document ' + str(document))
                 metadata = {}
                 # TODO: Add possibility to configure mappings on deeper levels
@@ -171,21 +170,24 @@ def process(m, document, config, interactive):
                                 ),
                                 json_data=data,
                             )
-                
-                taggingconfig = config['transaction']['tagging']
-                for t in taggingconfig['tags']:
-                    if t not in m.tags:
-                        _logger.info("Tag %s not defined in system", t)
-                        continue
-                    data = {"tag": m.tags[t]["id"]}
-                    result = m.post(
-                        m.ep("tags/attach", base=document["url"]), json_data=data)
                 break
         except:
             _logger.debug(
                 'No amount or remittanceInfo found. Skipping transaction.')
             raise
-
+    
+    taggingconfig = config['transaction']['tagging']
+    if transaction_found:
+        attach = taggingconfig['success']
+    else:
+        attach = taggingconfig['failure']
+    for t in attach:
+        if t not in m.tags:
+            _logger.info("Tag %s not defined in system", t)
+            continue
+        data = {"tag": m.tags[t]["id"]}
+        result = m.post(
+        m.ep("tags/attach", base=document["url"]), json_data=data)
 
 def keepalive():
     with redis_lock.Lock(redis_conn, name='api_lock', expire=15, auto_renewal=True):
