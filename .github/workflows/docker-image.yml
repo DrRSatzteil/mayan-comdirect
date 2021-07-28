@@ -14,9 +14,21 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Docker login
+      env:
+        DOCKER_USER: ${{secrets.DOCKER_USER}}
+        DOCKER_PASS: ${{secrets.DOCKER_PASS}}
+      run:
+        docker login -u $DOCKER_USER -p $DOCKER_PASS 
     - name: Build the web Docker image
       run: docker build . --file ./docker/mayan-comdirect-web/Dockerfile --tag drrsatzteil/mayan-comdirect-web:latest
+    - name: Push web
+      run: docker push ${{secrets.DOCKER_USER}}/mayan-comdirect-web
     - name: Build the worker Docker image
       run: docker build . --file ./docker/mayan-comdirect-worker/Dockerfile --tag drrsatzteil/mayan-comdirect-worker:latest
+    - name: Push worker
+      run: docker push ${{secrets.DOCKER_USER}}/mayan-comdirect-worker
     - name: Build the keepalive Docker image
       run: docker build . --file ./docker/mayan-comdirect-keepalive/Dockerfile --tag drrsatzteil/mayan-comdirect-keepalive:latest
+    - name: Push keepalive
+      run: docker push ${{secrets.DOCKER_USER}}/mayan-comdirect-keepalive
