@@ -19,12 +19,15 @@
             "bookingDate": "bookingdate"
         },
         "tagging": {
-            "tags": [
-                "Bezahlt"
+            "success": [
+                "Paid"
+            ],
+            "failure": [
+                "Open"
             ]
         }
     },
     "postbox": {
-        "documenttype": "Vertragsunterlagen"
+        "documenttype": "Contractdata"
     }
 }
