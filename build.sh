@@ -1,1 +1,0 @@
-docker build -t drrsatzteil/mayan-comdirect-web -f docker/mayan-comdirect-web/Dockerfile . --no-cache & docker build -t drrsatzteil/mayan-comdirect-worker -f docker/mayan-comdirect-worker/Dockerfile . --no-cache & docker build -t drrsatzteil/mayan-comdirect-keepalive -f docker/mayan-comdirect-keepalive/Dockerfile . --no-cache

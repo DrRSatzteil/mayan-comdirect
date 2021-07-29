@@ -30,3 +30,4 @@ Temporary Items
 __pycache__
 logs
 examples
+build.sh
