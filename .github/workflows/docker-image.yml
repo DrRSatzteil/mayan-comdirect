@@ -51,11 +51,11 @@ jobs:
     - name: Push keepalive
       run: docker push ${{secrets.DOCKER_USER}}/mayan-comdirect-keepalive
     - name: push keepalive README to Dockerhub
-        uses: christian-korneck/update-container-description-action@v1
-        env:
-          DOCKER_USER: ${{secrets.DOCKER_USER}}
-          DOCKER_PASS: ${{secrets.DOCKER_PASS}}
-        with:
-          destination_container_repo: ${{secrets.DOCKER_USER}}/mayan-comdirect-keepalive
-          provider: dockerhub
-          readme_file: 'README.md'
+      uses: christian-korneck/update-container-description-action@v1
+      env:
+        DOCKER_USER: ${{secrets.DOCKER_USER}}
+        DOCKER_PASS: ${{secrets.DOCKER_PASS}}
+      with:
+        destination_container_repo: ${{secrets.DOCKER_USER}}/mayan-comdirect-keepalive
+        provider: dockerhub
+        readme_file: 'README.md'
