@@ -125,10 +125,10 @@ Note that messages will be imported as new documents to Mayan EDMS even if they 
 All messages imported will set their state to `read=true` at Comdirect so you will never import duplicates when using `read=false` (default value).
 
 #### `http://mayam-comdirect-web:8000/keepalive`
-This endpoint will simply refresh an active session TAN if required if you call it within 20 minutes after the session TAN was activated.
-Note that this does not necessarily mean that the session TAN will be active for 20 more minutes after you called this endpoint.
-During the first 10 minutes after a session TAN was activated no action will be taken by Mayan Comdirect since the obtained tokens are still valid.
-After these 10 minutes a refresh of the access tokens will be triggered which will effectively lead to new access tokens with a lifetime of 20 minutes.
+This endpoint will simply refresh an access token if required when you call it within 20 minutes after the session TAN was activated.
+Note that this does not necessarily mean that the access and refresh tokens will be valid for 10/20 more minutes after you called this endpoint.
+During the first 10 minutes after a session TAN was activated no action will be taken by Mayan Comdirect since the obtained access token is still valid.
+After these 10 minutes a refresh of the access token will be triggered which will effectively lead to new access and refresh tokens with a lifetime of 10 and 20 minutes.
 You may use the mayan-comdirect-keepalive service to trigger this endpoint every 9 minutes.
 If the session TAN is no longer active when calling this endpoint nothing will happen.
 
