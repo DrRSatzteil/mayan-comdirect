@@ -32,6 +32,7 @@ jobs:
       with:
         destination_container_repo: ${{secrets.DOCKER_USER}}/mayan-comdirect-web
         provider: dockerhub
+        short_description: 'Web frontend for Mayan EDMS Comdirect add-on'
         readme_file: 'README.md'
     - name: Build the worker Docker image
       run: docker build . --file ./docker/mayan-comdirect-worker/Dockerfile --tag drrsatzteil/mayan-comdirect-worker:latest
@@ -45,6 +46,7 @@ jobs:
       with:
         destination_container_repo: ${{secrets.DOCKER_USER}}/mayan-comdirect-worker
         provider: dockerhub
+        short_description: 'Worker service for the Mayan EDMS Comdirect add-on'
         readme_file: 'README.md'
     - name: Build the keepalive Docker image
       run: docker build . --file ./docker/mayan-comdirect-keepalive/Dockerfile --tag drrsatzteil/mayan-comdirect-keepalive:latest
@@ -58,4 +60,5 @@ jobs:
       with:
         destination_container_repo: ${{secrets.DOCKER_USER}}/mayan-comdirect-keepalive
         provider: dockerhub
+        short_description: 'Keeps a TAN session active as long as it is running'
         readme_file: 'README.md'
