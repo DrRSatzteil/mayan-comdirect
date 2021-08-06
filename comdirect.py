@@ -84,9 +84,12 @@ class Comdirect:
                 txs = json['values']
 
                 for tx in txs:
-                    valuta_date = datetime.strptime(
-                        tx['valutaDate'], '%Y-%m-%d')
-                    if valuta_date >= earliest:
+                    if tx['valutaDate']:
+                        valuta_date = datetime.strptime(
+                            tx['valutaDate'], '%Y-%m-%d')
+                        if valuta_date >= earliest:
+                            transactions.append(tx)
+                    else:
                         transactions.append(tx)
 
                 if json['aggregated']['latestTransactionIncluded']:
