@@ -211,8 +211,6 @@ The config file has sections for the transaction and the postbox endpoints:
 }
 ```
 
-The postbox endpoint just needs to know which document type should be used for the import of new documents.
-
 The transaction endpoint requires three configurations:
 1. The matching config is used to find matches between mayan documents and Comdirect transactions.
 Currently three parameters are required to point Mayan Comdirect to the metadata that should be used for matching: `invoice_amount`, `invoice_date` and `invoice_number`.
@@ -229,3 +227,5 @@ The key is always the field in the Comdirect API (you will find the documentatio
 Right now you can only specify mappings on the lowest level of the json response of the API.
 3. The tagging config tells Mayan Comdirect which tags should be applied to the document in case of sucess (= transaction was found) or failure (= transaction not found).
 You can also provide empty lists if no tags should be applied.
+
+The postbox endpoint primarily needs to know which document type should be used for the import of new documents. In addition to that you can also specify which API results should be mapped to metadata types in mayan. The logic is the same as for the transaction endpoint so see descriptions above on how to configure the mapping part of the postbox config.

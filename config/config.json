@@ -28,6 +28,11 @@
         }
     },
     "postbox": {
-        "documenttype": "Contractdata"
+        "documenttype": "Contractdata",
+        "mapping": {
+            "dateCreation": "creationdate"
+        },
+        "tagging": [
+        ]
     }
 }

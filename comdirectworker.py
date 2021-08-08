@@ -154,7 +154,7 @@ def transaction(document, interactive):
                                 document["url"],
                             )
                             data = {
-                                "metadata_type_pk": meta["metadata_type"]["id"],
+                                "metadata_type_id": meta["metadata_type"]["id"],
                                 "value": metadata[meta_name],
                             }
                             result = m.post(
@@ -219,7 +219,7 @@ def import_postbox(interactive, get_ads, get_archived, get_read):
             m.ep("documents"), json_data=create_data
         )
 
-        if document['mimetype'] == 'application/pdf':
+        if document['mimeType'] == 'application/pdf':
             with io.BytesIO(document['content']) as documentfile:
                 resultUpload = m.uploadfile(
                     m.ep(
@@ -230,7 +230,7 @@ def import_postbox(interactive, get_ads, get_archived, get_read):
                     file_data={'file_new': documentfile}
                 )
 
-        if document['mimetype'] == 'text/html':
+        if document['mimeType'] == 'text/html':
             with io.StringIO(document['content']) as documentfile:
                 pdf = pdfkit.from_file(documentfile, False)
 
@@ -243,6 +243,34 @@ def import_postbox(interactive, get_ads, get_archived, get_read):
                     json_data={'action': 1},
                     file_data={'file_new': pdffile}
                 )
+        
+        metadata = {}
+        # TODO: Add possibility to configure mappings on deeper levels
+        # and basic transformations e.g. for date formats
+        mappingconfig = config['postbox']['mapping']
+        for property in mappingconfig.keys():
+            try:
+                propertyValue = document[property]
+                metadata[mappingconfig[property]] = propertyValue
+            except:
+                _logger.error('Property ' + property +
+                                ' not found in document.')
+
+        for meta in m.document_types[result_create["document_type"]["label"]]["metadatas"]:
+            meta_name = meta["metadata_type"]["name"]
+            if meta_name in metadata:
+                _logger.info(
+                    "Add metadata %s (value: %s) to %s",
+                    meta_name,
+                    metadata[meta_name],
+                    result_create["url"],
+                )
+                data = {
+                    "metadata_type_id": meta["metadata_type"]["id"],
+                    "value": metadata[meta_name],
+                }
+                result = m.post(
+                    m.ep("metadata", base=result_create["url"]), json_data=data)
 
 
 def cache_api_state(comdirect):

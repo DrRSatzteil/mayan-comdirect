@@ -135,16 +135,14 @@ class Comdirect:
                     )
                     if not (filtered):
                         mimetype = document['mimeType']
-                        name = document['name']
                         document_UUID = document['documentId']
                         response = self.__perform_request(Request_9_1_2(
                             self.access_token, self.session_id, self.request_id, document_UUID, mimetype))
                         if mimetype == 'text/html':
-                            documents.append(
-                                {'name': name, 'mimetype': mimetype, 'content': response.text})
+                            document['content'] = response.text
                         if mimetype == 'application/pdf':
-                            documents.append(
-                                {'name': name, 'mimetype': mimetype, 'content': response.content})
+                            document['content'] = response.content
+                        documents.append(document)
 
             return documents
 
