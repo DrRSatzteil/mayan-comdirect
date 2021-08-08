@@ -206,7 +206,12 @@ The config file has sections for the transaction and the postbox endpoints:
         }
     },
     "postbox": {
-        "documenttype": "Contractdata"
+        "documenttype": "Contractdata",
+        "mapping": {
+            "dateCreation": "creationdate"
+        },
+        "tagging": [
+        ]
     }
 }
 ```
