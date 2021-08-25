@@ -111,7 +111,7 @@ This service only triggers tasks for the worker.
 #### `http://mayam-comdirect-web:8000/transaction/<document_id>?interactive=false`
 This endpoint extracts metadata from the document and tries to obtain a corresponding transaction from your bank account.
 If a corresponding transaction is found additional tags and metadata can be attached to the document.
-Just drop a `POST` or `GET` request to the endpoint with the documentid attached (e.g. `http://mayan-comdirect-web:8000/345`).
+Just drop a `POST` or `GET` request to the endpoint with the documentid attached (e.g. `http://mayan-comdirect-web:8000/transaction/345`).
 This will enqueue the task for the worker.
 The `interactive` parameter is optional and defaults to `false` meaning that no TAN will be requested from the user when the session TAN is not already active.
 Only use `interactive=true` when you know that the account holder will be able to answer the TAN challenge in the mobile app in a given time.
