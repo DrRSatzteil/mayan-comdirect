@@ -222,6 +222,8 @@ Currently three parameters are required to point Mayan Comdirect to the metadata
 * `invoice_amount` should point to a metadatatype that holds the payment amount of the transaction.
 Set `"unsigned": true` if the data stored in this metadatatype does not have a leading `-` for outgoing payments.
 Also change the locale to your needs if you use a `.` instead of `,` as a decimal separator.
+Since all non number characters with the exception of decimal separators are ignored you don't have to worry about currency characters and the like.
+However please note that the metadata values obviously must match your account currency (should always be EUR).
 * `invoice_date` is not actually used to match a transaction but to stop the search for a transaction.
 It is assumed that the payment did not take place before the date when the invoice arrived so this should be a good value here.
 But you may use any other date that seems suitable for your purpose.
