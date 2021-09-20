@@ -111,7 +111,7 @@ This service only triggers tasks for the worker.
 #### `http://mayam-comdirect-web:8000/transaction/<document_id>?interactive=false`
 This endpoint extracts metadata from the document and tries to obtain a corresponding transaction from your bank account.
 If a corresponding transaction is found additional tags and metadata can be attached to the document.
-Just drop a `POST` or `GET` request to the endpoint with the documentid attached (e.g. `http://mayan-comdirect-web:8000/345`).
+Just drop a `POST` or `GET` request to the endpoint with the documentid attached (e.g. `http://mayan-comdirect-web:8000/transaction/345`).
 This will enqueue the task for the worker.
 The `interactive` parameter is optional and defaults to `false` meaning that no TAN will be requested from the user when the session TAN is not already active.
 Only use `interactive=true` when you know that the account holder will be able to answer the TAN challenge in the mobile app in a given time.
@@ -208,7 +208,12 @@ The config file has sections for the transaction and the postbox endpoints:
         }
     },
     "postbox": {
-        "documenttype": "Contractdata"
+        "documenttype": "Contractdata",
+        "mapping": {
+            "dateCreation": "creationdate"
+        },
+        "tagging": [
+        ]
     }
 }
 ```
@@ -219,6 +224,8 @@ Currently three parameters are required to point Mayan Comdirect to the metadata
 * `invoice_amount` should point to a metadatatype that holds the payment amount of the transaction.
 Set `"unsigned": true` if the data stored in this metadatatype does not have a leading `-` for outgoing payments.
 Also change the locale to your needs if you use a `.` instead of `,` as a decimal separator.
+Since all non number characters with the exception of decimal separators are ignored you don't have to worry about currency characters and the like.
+However please note that the metadata values obviously must match your account currency (should always be EUR).
 * `invoice_date` is not actually used to match a transaction but to stop the search for a transaction.
 It is assumed that the payment did not take place before the date when the invoice arrived so this should be a good value here.
 But you may use any other date that seems suitable for your purpose.
