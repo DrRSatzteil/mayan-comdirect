@@ -155,6 +155,8 @@ This service receives tasks queued by the web service.
 - `COMDIRECT_ZUGANGSNUMMER`: Comdirect Zugangsnummer (Access number)
 - `COMDIRECT_PIN`: Comdirect PIN
 
+**!!! Important !!!** For simplicity I use pickle to store the API state between API calls which is not necessarily secure. Therefore For security reasons make sure that the redis instance behind the REDIS_CACHE_URL is safely configured as it may be used to inject arbitrary code otherwise.
+
 ### 3. mayan-comdirect-keepalive
 
 This service simply calls the keepalive endpoint of the web service every 9 minutes.
