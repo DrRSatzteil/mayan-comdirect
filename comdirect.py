@@ -408,12 +408,15 @@ class Request_4_1_1(ComdirectRequest):
 
         return super().process_response(comdirect, response)
 
+# We limit this request to booked requests only because the paging-first parameter does only work with BOOKED transactions
+
 
 class Request_4_1_3(ComdirectRequest):
     def __init__(self, access_token, session_id, request_id, account_UUID, paging_first):
         self.method = 'GET'
         self.endpoint = "https://api.comdirect.de/api/banking/v1/accounts/" + \
-            account_UUID + "/transactions?paging-first=" + str(paging_first)
+            account_UUID + "/transactions?paging-first=" + \
+            str(paging_first) + "&transactionState=BOOKED"
         self.payload = {}
         self.headers = {
             'Accept': 'application/json',
