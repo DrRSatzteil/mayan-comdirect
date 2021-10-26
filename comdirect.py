@@ -95,7 +95,7 @@ class Comdirect:
                 if json['aggregated']['latestTransactionIncluded']:
                     break
 
-                paging_first += len(txs) - 1
+                paging_first += 1
 
             return transactions
 
