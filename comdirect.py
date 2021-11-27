@@ -92,10 +92,10 @@ class Comdirect:
                     else:
                         transactions.append(tx)
 
-                if json['aggregated']['latestTransactionIncluded']:
-                    break
-
                 paging_first += 1
+                
+                if json['paging']['matches'] == paging_first:
+                    break
 
             return transactions
 
