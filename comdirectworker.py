@@ -109,6 +109,10 @@ def transaction(document, interactive):
 
     _logger.debug('Document metadata found: ' + str(search_criteria))
 
+    # TODO: Cache transactions from the following call in redis and check if there are cached transactions available
+    # before querying from comdirect. For simplicity we should only cache the results of the last request. Therefore
+    # we always have to query comdirect again if the requested transaction was not found in the cache.
+
     with redis_lock.Lock(redis_conn, name='api_lock', expire=15, auto_renewal=True):
         c = get_comdirect(get_comdirect_options())
         transactions = c.get_transactions(
@@ -202,6 +206,7 @@ def import_postbox(interactive, get_ads, get_archived, get_read):
     m = get_mayan(args)
     _logger.info("importing postbox")
 
+    # TODO: The locking should all be centralized in get_comdirect
     with redis_lock.Lock(redis_conn, name='api_lock', expire=15, auto_renewal=True):
         c = get_comdirect(get_comdirect_options())
         documents = c.get_postbox_documents(
@@ -274,6 +279,8 @@ def import_postbox(interactive, get_ads, get_archived, get_read):
 
 
 def cache_api_state(comdirect):
+    # For simplicity we use pickle. For security reasons we should consider a JSON format.
+    # However the datetime types in comdirect prevent the simple JSONification.
     pickled = pickle.dumps(comdirect)
     # We need to log in again after 20 minutes anyway
     # so we might as well clear the cache after 20 minutes
