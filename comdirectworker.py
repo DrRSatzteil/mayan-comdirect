@@ -191,7 +191,7 @@ def transaction(document, interactive):
             continue
         data = {"tag": m.tags[t]["id"]}
         _logger.debug(
-                'Trying to attach Tag ' + t + ' with tag id ' + data + ' to document')
+                'Trying to attach Tag ' + t + ' with tag id ' + data["tag"] + ' to document')
         result = m.post(
         m.ep("tags/attach", base=document["url"]), json_data=data)
 
