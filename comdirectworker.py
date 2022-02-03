@@ -190,6 +190,8 @@ def transaction(document, interactive):
             _logger.info("Tag %s not defined in system", t)
             continue
         data = {"tag": m.tags[t]["id"]}
+        _logger.debug(
+                'Trying to attach Tag ' + t + ' with tag id ' + data + ' to document')
         result = m.post(
         m.ep("tags/attach", base=document["url"]), json_data=data)
 
