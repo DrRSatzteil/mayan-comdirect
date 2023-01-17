@@ -68,7 +68,7 @@ def transaction(document, interactive):
     config = get_config()
     m = get_mayan(args)
     _logger.info("load document %s", document)
-    
+
     if isinstance(document, str):
         if document.isnumeric():
             document = m.get(m.ep(f"documents/{document}"))
@@ -179,7 +179,7 @@ def transaction(document, interactive):
             _logger.debug(
                 'No amount or remittanceInfo found. Skipping transaction.')
             raise
-    
+
     taggingconfig = config['transaction']['tagging']
     if transaction_found:
         attach = taggingconfig['success']
@@ -193,7 +193,7 @@ def transaction(document, interactive):
         _logger.debug(
                 'Trying to attach Tag ' + t + ' with tag id ' + str(data["tag"]) + ' to document')
         result = m.post(
-        m.ep("tags/attach", base=document["url"]), json_data=data)
+            m.ep("tags/attach", base=document["url"]), json_data=data)
 
 def keepalive():
     with redis_lock.Lock(redis_conn, name='api_lock', expire=15, auto_renewal=True):
@@ -227,6 +227,7 @@ def import_postbox(interactive, get_ads, get_archived, get_read):
         )
 
         if document['mimeType'] == 'application/pdf':
+            _logger.debug("Document is a pdf file")
             with io.BytesIO(document['content']) as documentfile:
                 resultUpload = m.uploadfile(
                     m.ep(
@@ -238,8 +239,10 @@ def import_postbox(interactive, get_ads, get_archived, get_read):
                 )
 
         if document['mimeType'] == 'text/html':
+            _logger.debug("Document is a html file")
             with io.StringIO(document['content']) as documentfile:
-                pdf = pdfkit.from_file(documentfile, False)
+                _logger.debug("Trying to convert to pdf")
+                pdf = pdfkit.from_file(documentfile, verbose=True)
 
             with io.BytesIO(pdf) as pdffile:
                 resultUpload = m.uploadfile(
@@ -250,7 +253,7 @@ def import_postbox(interactive, get_ads, get_archived, get_read):
                     json_data={'action': 1},
                     file_data={'file_new': pdffile}
                 )
-        
+
         metadata = {}
         # TODO: Add possibility to configure mappings on deeper levels
         # and basic transformations e.g. for date formats
@@ -260,8 +263,7 @@ def import_postbox(interactive, get_ads, get_archived, get_read):
                 propertyValue = document[property]
                 metadata[mappingconfig[property]] = propertyValue
             except:
-                _logger.error('Property ' + property +
-                                ' not found in document.')
+                _logger.error('Property ' + property + ' not found in document.')
 
         for meta in m.document_types[result_create["document_type"]["label"]]["metadatas"]:
             meta_name = meta["metadata_type"]["name"]
