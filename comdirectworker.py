@@ -242,7 +242,7 @@ def import_postbox(interactive, get_ads, get_archived, get_read):
             _logger.debug("Document is a html file")
             with io.StringIO(document['content']) as documentfile:
                 _logger.debug("Trying to convert to pdf")
-                pdf = pdfkit.from_file(documentfile, verbose=True)
+                pdf = pdfkit.from_file(documentfile)
 
             with io.BytesIO(pdf) as pdffile:
                 resultUpload = m.uploadfile(
