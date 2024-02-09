@@ -253,7 +253,7 @@ def import_postbox(interactive, get_ads, get_archived, get_read):
                         "files",
                         base=result_create["url"],
                     ),
-                    json_data={'action': 1},
+                    json_data={'action_name': 'replace'},
                     file_data={'file_new': pdffile}
                 )
 
