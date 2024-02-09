@@ -234,7 +234,7 @@ def import_postbox(interactive, get_ads, get_archived, get_read):
                         "files",
                         base=result_create["url"],
                     ),
-                    json_data={'action_name': 1},
+                    json_data={'action_name': 2},
                     file_data={'file_new': documentfile}
                 )
 
