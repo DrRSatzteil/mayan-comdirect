@@ -32,7 +32,7 @@ class Endpoint(object):
             params = {}
 
         if not self.version:
-            version = re.search("api/(v\d+)/", base)
+            version = re.search(r"api/(v\d+)/", base)
             if version:
                 self.version = version.group(1)
         self.base = base
