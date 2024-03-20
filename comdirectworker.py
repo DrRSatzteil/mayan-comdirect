@@ -84,6 +84,8 @@ def transaction(document, interactive):
         x["metadata_type"]["name"]: x
         for x in m.all(m.ep("metadata", base=document["url"]))
     }
+    
+    _logger.debug("Retrieved metadata types: %s", doc_metadata.keys())
 
     search_criteria = {}
     unsigned = True
