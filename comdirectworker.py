@@ -26,7 +26,13 @@ def get_mayan_options():
     _logger.info("initial mayan configuration")
     options = {}
     options["username"] = os.getenv("MAYAN_USER")
+    if not options["username"]:
+        with open(os.getenv("MAYAN_USER_FILE"), 'r') as file:
+            options["username"] = file.read().rstrip()
     options["password"] = os.getenv("MAYAN_PASSWORD")
+    if not options["password"]:
+        with open(os.getenv("MAYAN_PASSWORD_FILE"), 'r') as file:
+            options["password"] = file.read().rstrip()
     options["url"] = os.getenv("MAYAN_URL")
     return options
 
