@@ -26,13 +26,7 @@ def get_mayan_options():
     _logger.info("initial mayan configuration")
     options = {}
     options["username"] = os.getenv("MAYAN_USER")
-    if not options["username"]:
-        with open(os.getenv("MAYAN_USER_FILE"), 'r') as file:
-            options["username"] = file.read().rstrip()
     options["password"] = os.getenv("MAYAN_PASSWORD")
-    if not options["password"]:
-        with open(os.getenv("MAYAN_PASSWORD_FILE"), 'r') as file:
-            options["password"] = file.read().rstrip()
     options["url"] = os.getenv("MAYAN_URL")
     return options
 
@@ -40,9 +34,22 @@ def get_comdirect_options():
     _logger.info("initial comdirect configuration")
     options = {}
     options["client_id"] = os.getenv("COMDIRECT_CLIENT_ID")
+    if not options["client_id"]:
+        with open(os.getenv("COMDIRECT_CLIENT_ID_FILE"), 'r') as file:
+            options["client_id"] = file.read().rstrip()
     options["client_secret"] = os.getenv("COMDIRECT_CLIENT_SECRET")
+    if not options["client_secret"]:
+        with open(os.getenv("COMDIRECT_CLIENT_SECRET_FILE"), 'r') as file:
+            options["client_secret"] = file.read().rstrip()
     options["zugangsnummer"] = os.getenv("COMDIRECT_ZUGANGSNUMMER")
+    if not options["zugangsnummer"]:
+        with open(os.getenv("COMDIRECT_ZUGANGSNUMMER_FILE"), 'r') as file:
+            options["zugangsnummer"] = file.read().rstrip()
     options["pin"] = os.getenv("COMDIRECT_PIN")
+    if not options["pin"]:
+        with open(os.getenv("COMDIRECT_PIN_FILE"), 'r') as file:
+            options["pin"] = file.read().rstrip()
+
     return options
 
 def get_config():
