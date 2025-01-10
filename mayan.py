@@ -85,7 +85,7 @@ class Mayan(object):
         }
 
     def oidcLogin(self, url, username, password, clientId, clientSecret, scope):
-        oidcSession = requests.Session()
+        self.session = requests.Session()
         headers = {
             "Content-type": "application/x-www-form-urlencoded",
             "Accept": "application/json",
