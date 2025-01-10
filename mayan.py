@@ -107,7 +107,7 @@ class Mayan(object):
         self.session.headers = {
             "Content-type": "application/json",
             "Accept": "application/json",
-            "Authorization": f"Token {token}",
+            "Authorization": f"Bearer {token}",
         }
 
     def load(self):
