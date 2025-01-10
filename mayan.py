@@ -140,7 +140,7 @@ class Mayan(object):
     def get(self, endpoint: Union[str, Endpoint]):
         if endpoint is str:
             endpoint = self.ep(endpoint)
-        result = self.session.get(endpoint)
+        result = self.session.get(endpoint, verify=False)
         if result.status_code != 200:
             _logger.warning(json.dumps(result.json(), indent=2))
         return result.json()
@@ -151,7 +151,7 @@ class Mayan(object):
         if self.test:
             print("WOULD POST", str(endpoint), json.dumps(json_data, indent=2))
             return {}
-        result = self.session.post(endpoint, json=json_data)
+        result = self.session.post(endpoint, json=json_data, verify=False)
         if result.status_code not in [200, 201]:
             _logger.warning(json.dumps(result.json(), indent=2))
         try:

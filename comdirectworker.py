@@ -270,6 +270,9 @@ def import_postbox(interactive, get_ads, get_archived, get_read):
         cache_api_state(c)
 
     _logger.debug("Received %d documents", len(documents))
+    if len(documents) == 0:
+        return  # No documents to process
+    
     postboxconfig = config["postbox"]
     document_type_id = m.document_types[postboxconfig["documenttype"]]["id"]
 
