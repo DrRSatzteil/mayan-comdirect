@@ -155,6 +155,7 @@ This service receives tasks queued by the web service.
 - `COMDIRECT_ZUGANGSNUMMER`: Comdirect Zugangsnummer (Access number)
 - `COMDIRECT_PIN`: Comdirect PIN
 - All `COMDIRECT_*` variables can also be read from files by appending `_FILE` to the variable name (e.g. `COMDIRECT_PIN_FILE`). This allows the use of docker secrets (https://docs.docker.com/engine/swarm/secrets/).
+- To Do: OIDC Documentation
 
 **!!! Important !!!** For simplicity I use pickle to store the API state between API calls which is not necessarily secure. Therefore please make sure that the redis instance behind the REDIS_CACHE_URL is safely configured as it may be used to inject arbitrary code otherwise.
 
