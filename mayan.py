@@ -7,6 +7,7 @@ import requests
 
 _logger = logging.getLogger(__name__)
 
+
 class Endpoint(object):
     def __init__(self, endpoint: str, *, params: dict = {}, base: str = None):
         self._paramstring = None
@@ -20,7 +21,7 @@ class Endpoint(object):
                 base += self.version
             endpoint, self._paramstring = endpoint.split("?", 1)
         if base is None:
-            raise Exception('missing base')
+            raise Exception("missing base")
         if not base.endswith("/"):
             base = base + "/"
 
@@ -43,8 +44,7 @@ class Endpoint(object):
     def paramstring(self):
         if self._paramstring != None:
             return self._paramstring
-        paramstring = "&".join(
-            map(lambda x: f"{x[0]}={x[1]}", self.params.items()))
+        paramstring = "&".join(map(lambda x: f"{x[0]}={x[1]}", self.params.items()))
         return paramstring
 
     def __repr__(self):
@@ -84,10 +84,35 @@ class Mayan(object):
             "Authorization": f"Token {token}",
         }
 
+    def oidcLogin(self, url, username, password, clientId, clientSecret, scope):
+        oidcSession = requests.Session()
+        headers = {
+            "Content-type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+        }
+        auth_data = {
+            "grant_type": "client_credentials",
+            "username": username,
+            "password": password,
+            "client_id": clientId,
+            "client_secret": clientSecret,
+            "scope": scope,
+        }
+        token_response = requests.post(url, data=auth_data, headers=headers)
+        _logger.debug("Login returned status: %s", token_response.status_code)
+        if token_response.status_code != 200:
+            raise Exception("Login Failed")
+        _logger.debug("Response: %s", token_response.content)
+        token = token_response.json()["token"]
+        self.session.headers = {
+            "Content-type": "application/json",
+            "Accept": "application/json",
+            "Authorization": f"Token {token}",
+        }
+
     def load(self):
         self.content_types = self.all("content_types")
-        self.document_types = {
-            x["label"]: x for x in self.all("document_types")}
+        self.document_types = {x["label"]: x for x in self.all("document_types")}
         self.metadata_types = self.all("metadata_types")
         self.tags = {x["label"]: x for x in self.all("tags")}
         for dt, document_type in self.document_types.items():
@@ -141,8 +166,9 @@ class Mayan(object):
             print("WOULD POST", str(endpoint), json.dumps(json_data, indent=2))
             return {}
         print(self.session.headers)
-        result = self.session.post(endpoint, data=json_data, files=file_data, headers={
-                                   'Content-type': None})
+        result = self.session.post(
+            endpoint, data=json_data, files=file_data, headers={"Content-type": None}
+        )
         if result.status_code != 202:
             _logger.warning(json.dumps(result.json(), indent=2))
         try:

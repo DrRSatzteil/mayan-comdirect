@@ -16,10 +16,10 @@ import redis_lock
 
 # read initial config file - make sure we don't squash any loggers
 # not specifically declared in the config file.
-fileConfig('/app/config/logging.ini', disable_existing_loggers=False)
+fileConfig("/app/config/logging.ini", disable_existing_loggers=False)
 _logger = logging.getLogger(__name__)
 
-redis_conn = redis.from_url(os.getenv('REDIS_CACHE_URL', 'redis://localhost'))
+redis_conn = redis.from_url(os.getenv("REDIS_CACHE_URL", "redis://localhost"))
 
 
 def get_mayan_options():
@@ -28,49 +28,79 @@ def get_mayan_options():
     options["username"] = os.getenv("MAYAN_USER")
     options["password"] = os.getenv("MAYAN_PASSWORD")
     options["url"] = os.getenv("MAYAN_URL")
+    options["oidc_url"] = os.getenv("OIDC_URL")
+    if options["oidc_url"]:
+        options["oidc_user"] = os.getenv("OIDC_USER")
+        options["oidc_password"] = os.getenv("OIDC_PASSWORD")
+        if not options["oidc_password"]:
+            with open(os.getenv("OIDC_PASSWORD_FILE"), "r") as file:
+                options["oidc_password"] = file.read().rstrip()
+        options["oidc_client_id"] = os.getenv("OIDC_CLIENT_ID")
+        options["oidc_client_secret"] = os.getenv("OIDC_CLIENT_SECRET")
+        if not options["oidc_client_secret"]:
+            with open(os.getenv("OIDC_CLIENT_SECRET_FILE"), "r") as file:
+                options["oidc_client_secret"] = file.read().rstrip()
+        options["oidc_scope"] = os.getenv("OIDC_SCOPE")
     return options
+
 
 def get_comdirect_options():
     _logger.info("initial comdirect configuration")
     options = {}
     options["client_id"] = os.getenv("COMDIRECT_CLIENT_ID")
     if not options["client_id"]:
-        with open(os.getenv("COMDIRECT_CLIENT_ID_FILE"), 'r') as file:
+        with open(os.getenv("COMDIRECT_CLIENT_ID_FILE"), "r") as file:
             options["client_id"] = file.read().rstrip()
     options["client_secret"] = os.getenv("COMDIRECT_CLIENT_SECRET")
     if not options["client_secret"]:
-        with open(os.getenv("COMDIRECT_CLIENT_SECRET_FILE"), 'r') as file:
+        with open(os.getenv("COMDIRECT_CLIENT_SECRET_FILE"), "r") as file:
             options["client_secret"] = file.read().rstrip()
     options["zugangsnummer"] = os.getenv("COMDIRECT_ZUGANGSNUMMER")
     if not options["zugangsnummer"]:
-        with open(os.getenv("COMDIRECT_ZUGANGSNUMMER_FILE"), 'r') as file:
+        with open(os.getenv("COMDIRECT_ZUGANGSNUMMER_FILE"), "r") as file:
             options["zugangsnummer"] = file.read().rstrip()
     options["pin"] = os.getenv("COMDIRECT_PIN")
     if not options["pin"]:
-        with open(os.getenv("COMDIRECT_PIN_FILE"), 'r') as file:
+        with open(os.getenv("COMDIRECT_PIN_FILE"), "r") as file:
             options["pin"] = file.read().rstrip()
 
     return options
 
+
 def get_config():
-    config = json.load(open('/app/config/config.json',))
+    config = json.load(
+        open(
+            "/app/config/config.json",
+        )
+    )
     return config
 
 
 def get_mayan(args):
     _logger.info("logging into mayan")
     m = mayan.Mayan(args["url"])
-    m.login(args["username"], args["password"])
+    if args["oidc_url"]:
+        m.oidcLogin(
+            args["oidc_url"],
+            args["oidc_user"],
+            args["oidc_password"],
+            args["oidc_client_id"],
+            args["oidc_client_secret"],
+            args["oidc_scope"],
+        )
+    else:
+        m.login(args["username"], args["password"])
     _logger.info("load meta informations")
     m.load()
     return m
 
 
 def get_comdirect(args):
-    cache = redis_conn.get('comdirect_cache')
+    cache = redis_conn.get("comdirect_cache")
     if cache == None:
         c = comdirect.Comdirect(
-            args["client_id"], args["client_secret"], args["zugangsnummer"], args["pin"])
+            args["client_id"], args["client_secret"], args["zugangsnummer"], args["pin"]
+        )
     else:
         c = pickle.loads(cache)
     return c
@@ -97,72 +127,77 @@ def transaction(document, interactive):
         x["metadata_type"]["name"]: x
         for x in m.all(m.ep("metadata", base=document["url"]))
     }
-    
+
     _logger.debug("Retrieved metadata types: %s", doc_metadata.keys())
 
     search_criteria = {}
     unsigned = True
     try:
-        matchingconfig = config['transaction']['matching']
-        amount = doc_metadata[matchingconfig['invoice_amount']['metadatatype']]['value']
-        unsigned = matchingconfig['invoice_amount']['unsigned']
-        amountlocale = matchingconfig['invoice_amount']['locale']
-        amount_filtered = ''.join(str(c) for c in (
-            list(filter(lambda x: x in '-0123456789.,', amount))))
-        amount_decimal = numbers.parse_decimal(
-            amount_filtered, locale=amountlocale)
-        search_criteria['invoice_amount'] = amount_decimal
+        matchingconfig = config["transaction"]["matching"]
+        amount = doc_metadata[matchingconfig["invoice_amount"]["metadatatype"]]["value"]
+        unsigned = matchingconfig["invoice_amount"]["unsigned"]
+        amountlocale = matchingconfig["invoice_amount"]["locale"]
+        amount_filtered = "".join(
+            str(c) for c in (list(filter(lambda x: x in "-0123456789.,", amount)))
+        )
+        amount_decimal = numbers.parse_decimal(amount_filtered, locale=amountlocale)
+        search_criteria["invoice_amount"] = amount_decimal
 
-        search_criteria['invoice_number'] = doc_metadata[matchingconfig['invoice_number']['metadatatype']]['value']
+        search_criteria["invoice_number"] = doc_metadata[
+            matchingconfig["invoice_number"]["metadatatype"]
+        ]["value"]
 
-        date = doc_metadata[matchingconfig['invoice_date']['metadatatype']]['value']
-        format = matchingconfig['invoice_date']['dateformat']
-        search_criteria['invoice_date'] = datetime.strptime(date, format)
+        date = doc_metadata[matchingconfig["invoice_date"]["metadatatype"]]["value"]
+        format = matchingconfig["invoice_date"]["dateformat"]
+        search_criteria["invoice_date"] = datetime.strptime(date, format)
     except:
-        _logger.error('Matching configuration is incomplete or incorrect.')
+        _logger.error("Matching configuration is incomplete or incorrect.")
         raise
 
-    _logger.debug('Document metadata found: ' + str(search_criteria))
+    _logger.debug("Document metadata found: " + str(search_criteria))
 
     # TODO: Cache transactions from the following call in redis and check if there are cached transactions available
     # before querying from comdirect. For simplicity we should only cache the results of the last request. Therefore
     # we always have to query comdirect again if the requested transaction was not found in the cache.
 
-    with redis_lock.Lock(redis_conn, name='api_lock', expire=15, auto_renewal=True):
+    with redis_lock.Lock(redis_conn, name="api_lock", expire=15, auto_renewal=True):
         c = get_comdirect(get_comdirect_options())
-        transactions = c.get_transactions(
-            search_criteria['invoice_date'], interactive)
+        transactions = c.get_transactions(search_criteria["invoice_date"], interactive)
         cache_api_state(c)
 
     transaction_found = False
     for tx in transactions:
         try:
-            tx_amount = tx['amount']['value']
-            tx_remittanceInfo = tx['remittanceInfo']
+            tx_amount = tx["amount"]["value"]
+            tx_remittanceInfo = tx["remittanceInfo"]
 
             if unsigned:
-                tx_amount = tx_amount.replace('-', '')
+                tx_amount = tx_amount.replace("-", "")
 
-            tx_amount_decimal = numbers.parse_decimal(
-                tx_amount, locale='en_US')
+            tx_amount_decimal = numbers.parse_decimal(tx_amount, locale="en_US")
 
-            if(tx_amount_decimal == search_criteria['invoice_amount']
-                    and search_criteria['invoice_number'] in tx_remittanceInfo):
+            if (
+                tx_amount_decimal == search_criteria["invoice_amount"]
+                and search_criteria["invoice_number"] in tx_remittanceInfo
+            ):
                 transaction_found = True
-                _logger.info('Found transaction for document ' + str(document))
+                _logger.info("Found transaction for document " + str(document))
                 metadata = {}
                 # TODO: Add possibility to configure mappings on deeper levels
                 # and basic transformations e.g. for date formats
-                mappingconfig = config['transaction']['mapping']
+                mappingconfig = config["transaction"]["mapping"]
                 for property in mappingconfig.keys():
                     try:
                         propertyValue = tx[property]
                         metadata[mappingconfig[property]] = propertyValue
                     except:
-                        _logger.error('Property ' + property +
-                                      ' not found in transaction.')
+                        _logger.error(
+                            "Property " + property + " not found in transaction."
+                        )
 
-                for meta in m.document_types[document["document_type"]["label"]]["metadatas"]:
+                for meta in m.document_types[document["document_type"]["label"]][
+                    "metadatas"
+                ]:
                     meta_name = meta["metadata_type"]["name"]
                     if meta_name in metadata:
                         if meta_name not in doc_metadata:
@@ -183,35 +218,38 @@ def transaction(document, interactive):
                             data = {"value": metadata[meta_name]}
                             result = m.put(
                                 m.ep(
-                                    "metadata/{}".format(
-                                        doc_metadata[meta_name]["id"]),
+                                    "metadata/{}".format(doc_metadata[meta_name]["id"]),
                                     base=document["url"],
                                 ),
                                 json_data=data,
                             )
                 break
         except:
-            _logger.debug(
-                'No amount or remittanceInfo found. Skipping transaction.')
+            _logger.debug("No amount or remittanceInfo found. Skipping transaction.")
             raise
 
-    taggingconfig = config['transaction']['tagging']
+    taggingconfig = config["transaction"]["tagging"]
     if transaction_found:
-        attach = taggingconfig['success']
+        attach = taggingconfig["success"]
     else:
-        attach = taggingconfig['failure']
+        attach = taggingconfig["failure"]
     for t in attach:
         if t not in m.tags:
             _logger.info("Tag %s not defined in system", t)
             continue
         data = {"tag": m.tags[t]["id"]}
         _logger.debug(
-                'Trying to attach Tag ' + t + ' with tag id ' + str(data["tag"]) + ' to document')
-        result = m.post(
-            m.ep("tags/attach", base=document["url"]), json_data=data)
+            "Trying to attach Tag "
+            + t
+            + " with tag id "
+            + str(data["tag"])
+            + " to document"
+        )
+        result = m.post(m.ep("tags/attach", base=document["url"]), json_data=data)
+
 
 def keepalive():
-    with redis_lock.Lock(redis_conn, name='api_lock', expire=15, auto_renewal=True):
+    with redis_lock.Lock(redis_conn, name="api_lock", expire=15, auto_renewal=True):
         c = get_comdirect(get_comdirect_options())
         c.login(False)
         cache_api_state(c)
@@ -224,42 +262,44 @@ def import_postbox(interactive, get_ads, get_archived, get_read):
     _logger.info("importing postbox")
 
     # TODO: The locking should all be centralized in get_comdirect
-    with redis_lock.Lock(redis_conn, name='api_lock', expire=15, auto_renewal=True):
+    with redis_lock.Lock(redis_conn, name="api_lock", expire=15, auto_renewal=True):
         c = get_comdirect(get_comdirect_options())
         documents = c.get_postbox_documents(
-            interactive, get_ads, get_archived, get_read)
+            interactive, get_ads, get_archived, get_read
+        )
         cache_api_state(c)
 
     _logger.debug("Received %d documents", len(documents))
-    postboxconfig = config['postbox']
-    document_type_id = m.document_types[postboxconfig['documenttype']]['id']
+    postboxconfig = config["postbox"]
+    document_type_id = m.document_types[postboxconfig["documenttype"]]["id"]
 
     for document in documents:
-        create_data = {'document_type_id': document_type_id,
-                       'label': document['name'], 'language': 'deu'}
-        result_create = m.post(
-            m.ep("documents"), json_data=create_data
-        )
+        create_data = {
+            "document_type_id": document_type_id,
+            "label": document["name"],
+            "language": "deu",
+        }
+        result_create = m.post(m.ep("documents"), json_data=create_data)
 
-        if document['mimeType'] == 'application/pdf':
+        if document["mimeType"] == "application/pdf":
             _logger.debug("Document is a pdf file")
-            with io.BytesIO(document['content']) as documentfile:
+            with io.BytesIO(document["content"]) as documentfile:
                 resultUpload = m.uploadfile(
                     m.ep(
                         "files",
                         base=result_create["url"],
                     ),
-                    json_data={'action_name': 'replace'},
-                    file_data={'file_new': documentfile}
+                    json_data={"action_name": "replace"},
+                    file_data={"file_new": documentfile},
                 )
 
-        if document['mimeType'] == 'text/html':
+        if document["mimeType"] == "text/html":
             _logger.debug("Document is a html file")
-            with io.StringIO(document['content']) as documentfile:
+            with io.StringIO(document["content"]) as documentfile:
                 _logger.debug("Trying to convert to pdf")
                 # from_file now complains about a missing output_path. trying with the code from the pdfkit tests
-                #pdf = pdfkit.from_file(documentfile)
-                r = pdfkit.PDFKit(documentfile, 'file')
+                # pdf = pdfkit.from_file(documentfile)
+                r = pdfkit.PDFKit(documentfile, "file")
                 pdf = r.to_pdf()
 
             with io.BytesIO(pdf) as pdffile:
@@ -268,22 +308,24 @@ def import_postbox(interactive, get_ads, get_archived, get_read):
                         "files",
                         base=result_create["url"],
                     ),
-                    json_data={'action_name': 'replace'},
-                    file_data={'file_new': pdffile}
+                    json_data={"action_name": "replace"},
+                    file_data={"file_new": pdffile},
                 )
 
         metadata = {}
         # TODO: Add possibility to configure mappings on deeper levels
         # and basic transformations e.g. for date formats
-        mappingconfig = config['postbox']['mapping']
+        mappingconfig = config["postbox"]["mapping"]
         for property in mappingconfig.keys():
             try:
                 propertyValue = document[property]
                 metadata[mappingconfig[property]] = propertyValue
             except:
-                _logger.error('Property ' + property + ' not found in document.')
+                _logger.error("Property " + property + " not found in document.")
 
-        for meta in m.document_types[result_create["document_type"]["label"]]["metadatas"]:
+        for meta in m.document_types[result_create["document_type"]["label"]][
+            "metadatas"
+        ]:
             meta_name = meta["metadata_type"]["name"]
             if meta_name in metadata:
                 _logger.info(
@@ -297,7 +339,8 @@ def import_postbox(interactive, get_ads, get_archived, get_read):
                     "value": metadata[meta_name],
                 }
                 result = m.post(
-                    m.ep("metadata", base=result_create["url"]), json_data=data)
+                    m.ep("metadata", base=result_create["url"]), json_data=data
+                )
 
 
 def cache_api_state(comdirect):
@@ -306,4 +349,4 @@ def cache_api_state(comdirect):
     pickled = pickle.dumps(comdirect)
     # We need to log in again after 20 minutes anyway
     # so we might as well clear the cache after 20 minutes
-    redis_conn.set('comdirect_cache', pickled, 1200)
+    redis_conn.set("comdirect_cache", pickled, 1200)
