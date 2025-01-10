@@ -103,7 +103,7 @@ class Mayan(object):
         if token_response.status_code != 200:
             raise Exception("Login Failed")
         _logger.debug("Response: %s", token_response.content)
-        token = token_response.json()["token"]
+        token = token_response.json()["access_token"]
         self.session.headers = {
             "Content-type": "application/json",
             "Accept": "application/json",
