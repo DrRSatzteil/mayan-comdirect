@@ -28,19 +28,10 @@ def get_mayan_options():
     options["username"] = os.getenv("MAYAN_USER")
     options["password"] = os.getenv("MAYAN_PASSWORD")
     options["url"] = os.getenv("MAYAN_URL")
-    options["oidc_url"] = os.getenv("OIDC_URL")
-    if options["oidc_url"]:
-        options["oidc_user"] = os.getenv("OIDC_USER")
-        options["oidc_password"] = os.getenv("OIDC_PASSWORD")
-        if not options["oidc_password"]:
-            with open(os.getenv("OIDC_PASSWORD_FILE"), "r") as file:
-                options["oidc_password"] = file.read().rstrip()
-        options["oidc_client_id"] = os.getenv("OIDC_CLIENT_ID")
-        options["oidc_client_secret"] = os.getenv("OIDC_CLIENT_SECRET")
-        if not options["oidc_client_secret"]:
-            with open(os.getenv("OIDC_CLIENT_SECRET_FILE"), "r") as file:
-                options["oidc_client_secret"] = file.read().rstrip()
-        options["oidc_scope"] = os.getenv("OIDC_SCOPE")
+    options["token"] = os.getenv("MAYAN_TOKEN")
+    if not options["token"] and os.getenv("MAYAN_TOKEN_FILE"):
+        with open(os.getenv("MAYAN_TOKEN_FILE"), "r") as file:
+            options["token"] = file.read().rstrip()
     return options
 
 
@@ -79,15 +70,8 @@ def get_config():
 def get_mayan(args):
     _logger.info("logging into mayan")
     m = mayan.Mayan(args["url"])
-    if args["oidc_url"]:
-        m.oidcLogin(
-            args["oidc_url"],
-            args["oidc_user"],
-            args["oidc_password"],
-            args["oidc_client_id"],
-            args["oidc_client_secret"],
-            args["oidc_scope"],
-        )
+    if args.get("token"):
+        m.tokenLogin(args["token"])
     else:
         m.login(args["username"], args["password"])
     _logger.info("load meta informations")

@@ -84,30 +84,12 @@ class Mayan(object):
             "Authorization": f"Token {token}",
         }
 
-    def oidcLogin(self, url, username, password, clientId, clientSecret, scope):
+    def tokenLogin(self, token):
         self.session = requests.Session()
-        headers = {
-            "Content-type": "application/x-www-form-urlencoded",
-            "Accept": "application/json",
-        }
-        auth_data = {
-            "grant_type": "client_credentials",
-            "username": username,
-            "password": password,
-            "client_id": clientId,
-            "client_secret": clientSecret,
-            "scope": scope,
-        }
-        token_response = requests.post(url, data=auth_data, headers=headers)
-        _logger.debug("Login returned status: %s", token_response.status_code)
-        if token_response.status_code != 200:
-            raise Exception("Login Failed")
-        _logger.debug("Response: %s", token_response.content)
-        token = token_response.json()["access_token"]
         self.session.headers = {
             "Content-type": "application/json",
             "Accept": "application/json",
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Token {token}",
         }
 
     def load(self):
